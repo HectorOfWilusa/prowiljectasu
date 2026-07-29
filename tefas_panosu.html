@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TEFAS Panosu</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --bg:            #EAE6DD;
+    --panel:         #F7F5F0;
+    --panel-2:       #EFEBE2;
+    --line:          #DBD5C7;
+    --text:          #33312C;
+    --text-dim:      #6C6759;
+    --text-faint:    #9B9585;
+    --accent:        #6E6255;
+    --accent-2:      #4F7A6B;
+    --accent-dim:    #E1DACB;
+    --pos:           #4C7A5E;
+    --pos-bg:        #E3EAE1;
+    --neg:           #A85C43;
+    --neg-bg:        #F1E1D9;
+    --radius:        10px;
+  }
+
+  * { box-sizing:border-box; }
+
+  html,body{
+    margin:0; padding:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Inter","Segoe UI",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .num, .tabular { font-variant-numeric: tabular-nums; font-feature-settings:"tnum" 1; }
+
+  header{
+    padding:28px 32px 0;
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:24px;
+    flex-wrap:wrap;
+  }
+  .brand{ display:flex; flex-direction:column; gap:4px; }
+  .brand-mark{ display:flex; align-items:center; gap:10px; }
+  .brand-mark .dot{
+    width:9px; height:9px; border-radius:2px;
+    background:var(--accent-2);
+  }
+  .brand-mark span.tag{
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--text-faint); font-weight:600;
+  }
+  h1{ margin:0; font-size:26px; font-weight:650; letter-spacing:-0.01em; color:var(--text); }
+  .subtitle{ color:var(--text-dim); font-size:13.5px; margin-top:2px; }
+  .meta-block{ text-align:right; font-size:12.5px; color:var(--text-faint); line-height:1.6; }
+  #veri-tarihi{ color:var(--text-dim); font-weight:600; }
+
+  #tabs{
+    display:flex; gap:4px;
+    padding:20px 32px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .tab-btn{
+    appearance:none; border:none; background:none;
+    color:var(--text-faint); font-size:13.5px; font-weight:650;
+    padding:10px 16px 14px;
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+  }
+  .tab-btn:hover{ color:var(--text-dim); }
+  .tab-btn.active{ color:var(--text); border-bottom-color:var(--accent-2); }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  .drop-wrap{ padding:20px 32px 0; }
+  .dropzone{
+    border:1.5px dashed var(--line);
+    border-radius:var(--radius);
+    padding:22px 24px;
+    display:flex; align-items:center; gap:16px;
+    background:var(--panel);
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .dropzone.drag{ border-color:var(--accent-2); background:var(--accent-dim); }
+  .dropzone .ic{
+    width:38px; height:38px; flex:0 0 auto;
+    border-radius:8px; background:var(--panel-2);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--accent-2);
+  }
+  .dropzone .txt{ flex:1; min-width:220px; }
+  .dropzone .txt b{ color:var(--text); font-weight:600; }
+  .dropzone .txt small{ display:block; color:var(--text-faint); margin-top:2px; }
+  .dropzone input[type=file]{ display:none; }
+  .btn{
+    appearance:none; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--text);
+    padding:9px 16px; border-radius:7px;
+    font-size:13px; font-weight:600; cursor:pointer;
+    white-space:nowrap;
+  }
+  .btn:hover{ border-color:var(--accent-2); color:var(--accent-2); }
+  .btn.primary{ background:var(--accent-2); color:#F7F5F0; border-color:var(--accent-2); }
+  .btn.primary:hover{ filter:brightness(1.08); color:#F7F5F0; }
+
+  .status-line{ margin-top:10px; font-size:12.5px; color:var(--text-faint); display:none; }
+  .status-line.show{ display:block; }
+  .status-line b{ color:var(--pos); }
+  .status-line.err b{ color:var(--neg); }
+
+  .kpis{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
+    gap:12px;
+    padding:20px 32px 0;
+  }
+  .kpi{
+    background:var(--panel); border:1px solid var(--line);
+    border-radius:var(--radius); padding:14px 16px;
+  }
+  .kpi .label{ font-size:11.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.06em; }
+  .kpi .value{ font-size:22px; font-weight:650; margin-top:6px; color:var(--text); }
+  .kpi .value.pos{ color:var(--pos); }
+  .kpi .value.neg{ color:var(--neg); }
+
+  .kategori-serit{ display:flex; flex-wrap:wrap; gap:8px; padding:18px 32px 0; }
+  .pill{
+    display:inline-flex; align-items:center; gap:7px;
+    padding:6px 11px 6px 8px; border-radius:999px;
+    font-size:12px; font-weight:600;
+    border:1px solid var(--line); background:var(--panel);
+    cursor:pointer; user-select:none; color:var(--text-dim);
+    transition:opacity .12s ease;
+  }
+  .pill .sw{ width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+  .pill .ct{ color:var(--text-faint); font-weight:500; }
+  .pill.off{ opacity:.4; }
+  .pill:hover{ border-color:var(--accent-2); }
+
+  .controls{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:18px 32px 0; }
+  .controls input[type=search]{
+    flex:1; min-width:220px; background:var(--panel); border:1px solid var(--line);
+    color:var(--text); border-radius:7px; padding:9px 12px; font-size:13.5px;
+  }
+  .controls input[type=search]:focus{ outline:none; border-color:var(--accent-2); }
+  .controls select{
+    background:var(--panel); border:1px solid var(--line); color:var(--text);
+    border-radius:7px; padding:9px 10px; font-size:13px;
+  }
+  .row-count{ font-size:12.5px; color:var(--text-faint); white-space:nowrap; }
+
+  .table-wrap{
+    margin:18px 32px 40px; border:1px solid var(--line); border-radius:var(--radius);
+    overflow:hidden; background:var(--panel);
+    overflow-x:auto;
+  }
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  thead th{
+    position:sticky; top:0; z-index:2; background:var(--panel-2);
+    text-align:right; padding:11px 14px;
+    font-size:11px; letter-spacing:.05em; text-transform:uppercase;
+    color:var(--text-faint); font-weight:650;
+    border-bottom:1px solid var(--line); cursor:pointer; white-space:nowrap;
+  }
+  thead th:first-child, thead th:nth-child(2), thead th:nth-child(3){ text-align:left; }
+  thead th .arrow{ opacity:0; margin-left:4px; font-size:10px; }
+  thead th.sorted .arrow{ opacity:1; color:var(--accent-2); }
+  thead th:hover{ color:var(--text); }
+
+  tbody td{ padding:10px 14px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; color:var(--text); }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background:rgba(0,0,0,0.02); }
+
+  td.kod{ text-align:left; font-weight:650; color:var(--text); }
+  td.ad{ text-align:left; color:var(--text-dim); max-width:340px; overflow:hidden; text-overflow:ellipsis; }
+  td.kat{ text-align:left; }
+
+  .kat-pill{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:11.5px; font-weight:600; color:var(--text-dim);
+    padding:3px 9px 3px 7px; border-radius:999px;
+    background:var(--panel-2); border:1px solid var(--line); white-space:nowrap;
+  }
+  .kat-pill .sw{ width:7px; height:7px; border-radius:50%; }
+
+  .risk-dot-row{ display:inline-flex; gap:2px; }
+  .risk-dot{ width:5px; height:12px; border-radius:1px; background:var(--line); }
+  .risk-dot.on{ background:var(--accent-2); }
+
+  .g{ font-weight:650; }
+  .g.pos{ color:var(--pos); }
+  .g.neg{ color:var(--neg); }
+  .g.na{ color:var(--text-faint); font-weight:500; }
+
+  .empty-state{ padding:60px 32px; text-align:center; color:var(--text-faint); }
+  .empty-state b{ color:var(--text-dim); }
+
+  .pie-wrap{
+    display:flex; gap:40px; flex-wrap:wrap;
+    align-items:center;
+    margin:24px 32px 40px;
+  }
+  .pie-svg-holder{ flex:0 0 auto; }
+  .pie-legend{ display:flex; flex-direction:column; gap:10px; min-width:260px; flex:1; }
+  .legend-row{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 14px;
+    background:var(--panel); border:1px solid var(--line); border-radius:8px;
+  }
+  .legend-row .sw{ width:12px; height:12px; border-radius:3px; flex:0 0 auto; }
+  .legend-row .ad{ flex:1; font-size:13px; color:var(--text-dim); }
+  .legend-row .pct{ font-size:14px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
+  .legend-row .tl{ font-size:11.5px; color:var(--text-faint); }
+
+  ::-webkit-scrollbar{ width:11px; height:11px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:6px; }
+  ::-webkit-scrollbar-thumb:hover{ background:var(--text-faint); }
+
+  @media (max-width:720px){
+    header, .drop-wrap, .kpis, .kategori-serit, .controls, .table-wrap, #tabs, .pie-wrap{ padding-left:16px; padding-right:16px; }
+    .table-wrap{ margin-left:16px; margin-right:16px; }
+    table{ min-width:900px; }
+    .pie-wrap{ flex-direction:column; align-items:flex-start; margin-left:16px; margin-right:16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-mark">
+      <span class="dot"></span>
+      <span class="tag">Kişisel Fon Takibi</span>
+    </div>
+    <h1>TEFAS Panosu</h1>
+    <div class="subtitle">Şemsiye türü, risk, dönemsel getiriler ve portföy değerlemesi</div>
+  </div>
+  <div class="meta-block">
+    <div>Veri tarihi: <span id="veri-tarihi">—</span></div>
+    <div>Kaynak: tefas.gov.tr</div>
+  </div>
+</header>
+
+<div id="tabs">
+  <button class="tab-btn active" data-tab="tum-fonlar">Tüm Fonlar</button>
+  <button class="tab-btn" data-tab="portfoyum">Portföyüm</button>
+  <button class="tab-btn" data-tab="kategori">Kategori Dağılımı</button>
+</div>
+
+<div class="tab-panel active" id="panel-tum-fonlar">
+
+  <div class="drop-wrap">
+    <div class="dropzone" id="dropzone-fonlar">
+      <div class="ic">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </div>
+      <div class="txt">
+        <b>getiri_kategori_....csv</b> dosyasını buraya sürükle
+        <small>tefas_getiri_kategori.py'nin ürettiği dosya</small>
+      </div>
+      <label class="btn primary" for="file-input-fonlar">Dosya seç</label>
+      <input id="file-input-fonlar" type="file" accept=".csv">
+    </div>
+    <div class="status-line" id="status-fonlar"></div>
+  </div>
+
+  <div class="kpis" id="kpis-fonlar" style="display:none">
+    <div class="kpi"><div class="label">Toplam Fon</div><div class="value" id="kpi-toplam">—</div></div>
+    <div class="kpi"><div class="label">Ortalama 1A Getiri</div><div class="value" id="kpi-ort1a">—</div></div>
+    <div class="kpi"><div class="label">Ortalama YBB Getiri</div><div class="value" id="kpi-ortybb">—</div></div>
+    <div class="kpi"><div class="label">En İyi 1A</div><div class="value pos" id="kpi-en-iyi">—</div></div>
+    <div class="kpi"><div class="label">En Kötü 1A</div><div class="value neg" id="kpi-en-kotu">—</div></div>
+  </div>
+
+  <div class="kategori-serit" id="kategori-serit-fonlar"></div>
+
+  <div class="controls" id="controls-fonlar" style="display:none">
+    <input type="search" id="arama-fonlar" placeholder="Fon kodu veya adı ara...">
+    <select id="siralama-alani-fonlar">
+      <option value="getiri_1A_%">1 Ay Getiri</option>
+      <option value="getiri_3A_%">3 Ay Getiri</option>
+      <option value="getiri_6A_%">6 Ay Getiri</option>
+      <option value="getiri_1Y_%">1 Yıl Getiri</option>
+      <option value="getiri_YBB_%">Yılbaşı Getiri</option>
+      <option value="getiri_3Y_%">3 Yıl Getiri</option>
+      <option value="getiri_5Y_%">5 Yıl Getiri</option>
+      <option value="risk_degeri">Risk</option>
+      <option value="fund_code">Fon Kodu</option>
+    </select>
+    <span class="row-count" id="row-count-fonlar"></span>
+  </div>
+
+  <div class="table-wrap" id="table-wrap-fonlar" style="display:none">
+    <table id="tablo-fonlar">
+      <thead>
+        <tr>
+          <th data-key="fund_code">Kod <span class="arrow">▼</span></th>
+          <th data-key="fund_name">Fon Adı <span class="arrow">▼</span></th>
+          <th data-key="semsiye_turu">Şemsiye Türü <span class="arrow">▼</span></th>
+          <th data-key="risk_degeri">Risk <span class="arrow">▼</span></th>
+          <th data-key="getiri_1A_%">1A % <span class="arrow">▼</span></th>
+          <th data-key="getiri_3A_%">3A % <span class="arrow">▼</span></th>
+          <th data-key="getiri_6A_%">6A % <span class="arrow">▼</span></th>
+          <th data-key="getiri_1Y_%">1Y % <span class="arrow">▼</span></th>
+          <th data-key="getiri_YBB_%">YBB % <span class="arrow">▼</span></th>
+          <th data-key="getiri_3Y_%">3Y % <span class="arrow">▼</span></th>
+          <th data-key="getiri_5Y_%">5Y % <span class="arrow">▼</span></th>
+        </tr>
+      </thead>
+      <tbody id="tbody-fonlar"></tbody>
+    </table>
+  </div>
+
+  <div class="empty-state" id="empty-fonlar">
+    Henüz veri yüklenmedi. <b>getiri_kategori_YYYY-MM-DD.csv</b> dosyasını yukarıdaki alana sürükle.
+  </div>
+</div>
+
+<div class="tab-panel" id="panel-portfoyum">
+
+  <div class="drop-wrap">
+    <div class="dropzone" id="dropzone-portfoy">
+      <div class="ic">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </div>
+      <div class="txt">
+        <b>portfoy_degerleme_....csv</b> dosyasını buraya sürükle
+        <small>tefas_portfoy_degerle.py'nin ürettiği dosya</small>
+      </div>
+      <label class="btn primary" for="file-input-portfoy">Dosya seç</label>
+      <input id="file-input-portfoy" type="file" accept=".csv">
+    </div>
+    <div class="status-line" id="status-portfoy"></div>
+  </div>
+
+  <div class="kpis" id="kpis-portfoy" style="display:none">
+    <div class="kpi"><div class="label">Toplam Maliyet</div><div class="value" id="kpi-p-maliyet">—</div></div>
+    <div class="kpi"><div class="label">Güncel Değer</div><div class="value" id="kpi-p-deger">—</div></div>
+    <div class="kpi"><div class="label">Kâr / Zarar</div><div class="value" id="kpi-p-kz">—</div></div>
+    <div class="kpi"><div class="label">Kâr / Zarar %</div><div class="value" id="kpi-p-kzpct">—</div></div>
+    <div class="kpi"><div class="label">Fon Sayısı</div><div class="value" id="kpi-p-sayi">—</div></div>
+  </div>
+
+  <div class="controls" id="controls-portfoy" style="display:none">
+    <input type="search" id="arama-portfoy" placeholder="Fon kodu veya adı ara...">
+    <select id="siralama-alani-portfoy">
+      <option value="guncel_deger_tl">Güncel Değer</option>
+      <option value="kar_zarar_tl">Kâr/Zarar (TL)</option>
+      <option value="kar_zarar_%">Kâr/Zarar (%)</option>
+      <option value="gunluk_ortalama_kazanc_%">Günlük Ort. Kazanç</option>
+      <option value="toplam_maliyet_tl">Maliyet</option>
+      <option value="fon_kodu">Fon Kodu</option>
+    </select>
+    <span class="row-count" id="row-count-portfoy"></span>
+  </div>
+
+  <div class="table-wrap" id="table-wrap-portfoy" style="display:none">
+    <table id="tablo-portfoy">
+      <thead>
+        <tr>
+          <th data-key="fon_kodu">Kod <span class="arrow">▼</span></th>
+          <th data-key="fon_adi">Fon Adı <span class="arrow">▼</span></th>
+          <th data-key="semsiye_turu">Şemsiye Türü <span class="arrow">▼</span></th>
+          <th data-key="toplam_pay">Pay</th>
+          <th data-key="agirlikli_ort_alis_fiyati">Ort. Alış</th>
+          <th data-key="guncel_fiyat">Güncel Fiyat</th>
+          <th data-key="toplam_maliyet_tl">Maliyet</th>
+          <th data-key="guncel_deger_tl">Güncel Değer</th>
+          <th data-key="kar_zarar_tl">K/Z (TL)</th>
+          <th data-key="kar_zarar_%">K/Z (%)</th>
+          <th data-key="gunluk_ortalama_kazanc_%">Günlük Ort. %</th>
+        </tr>
+      </thead>
+      <tbody id="tbody-portfoy"></tbody>
+    </table>
+  </div>
+
+  <div class="empty-state" id="empty-portfoy">
+    Henüz veri yüklenmedi. <b>portfoy_degerleme_YYYY-MM-DD.csv</b> dosyasını yukarıdaki alana sürükle.
+  </div>
+</div>
+
+<div class="tab-panel" id="panel-kategori">
+
+  <div class="drop-wrap">
+    <div class="dropzone" id="dropzone-dagilim">
+      <div class="ic">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </div>
+      <div class="txt">
+        <b>portfoy_kategori_dagilimi.csv</b> dosyasını buraya sürükle
+        <small>tefas_portfoy_degerle.py'nin ürettiği dosya</small>
+      </div>
+      <label class="btn primary" for="file-input-dagilim">Dosya seç</label>
+      <input id="file-input-dagilim" type="file" accept=".csv">
+    </div>
+    <div class="status-line" id="status-dagilim"></div>
+  </div>
+
+  <div class="pie-wrap" id="pie-wrap" style="display:none">
+    <div class="pie-svg-holder" id="pie-svg-holder"></div>
+    <div class="pie-legend" id="pie-legend"></div>
+  </div>
+
+  <div class="empty-state" id="empty-dagilim">
+    Henüz veri yüklenmedi. <b>portfoy_kategori_dagilimi.csv</b> dosyasını yukarıdaki alana sürükle.
+  </div>
+</div>
+
+<script>
+(function(){
+
+  const KATEGORI_RENK = {
+    "Hisse Senedi Şemsiye Fonu":      "#8FA9C7",
+    "Borçlanma Araçları Şemsiye Fonu":"#B8AE9C",
+    "Değişken Şemsiye Fonu":          "#B79FBD",
+    "Fon Sepeti Şemsiye Fonu":        "#D8B978",
+    "Karma Şemsiye Fonu":             "#D6976E",
+    "Katılım Şemsiye Fonu":           "#8FBBA0",
+    "Kıymetli Madenler Şemsiye Fonu": "#D8C978",
+    "Para Piyasası Şemsiye Fonu":     "#9CC0C2",
+    "Serbest Şemsiye Fonu":           "#C77F6C",
+  };
+  const PASTEL_SIRALI = ["#8FA9C7","#D8B978","#B79FBD","#8FBBA0","#C77F6C","#9CC0C2","#D6976E","#D8C978","#B8AE9C","#A6B08F"];
+  const VARSAYILAN_RENK = "#ABA595";
+  function renkAl(kategori){ return KATEGORI_RENK[kategori] || VARSAYILAN_RENK; }
+  function renkSirali(i){ return PASTEL_SIRALI[i % PASTEL_SIRALI.length]; }
+
+  const $ = (sel) => document.querySelector(sel);
+
+  function csvSayiParse(s){
+    if (s === undefined || s === null || s === "") return null;
+    if (typeof s === "number") return s;
+    const n = parseFloat(String(s).trim().replace(",", "."));
+    return Number.isNaN(n) ? null : n;
+  }
+
+  function csvOku(file, callback, hataCallback){
+    Papa.parse(file, {
+      header: true, skipEmptyLines: true, delimiter: ";", encoding: "UTF-8",
+      complete: (results) => callback(results.data, file.name),
+      error: (err) => hataCallback(err.message),
+    });
+  }
+
+  function tarihiDosyaAdindanCikar(dosyaAdi){
+    const m = dosyaAdi.match(/(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : "bilinmiyor";
+  }
+
+  function tlFmt(v){
+    if (v === null || v === undefined || Number.isNaN(v)) return "—";
+    return v.toLocaleString("tr-TR", {maximumFractionDigits:0}) + " ₺";
+  }
+
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      $("#panel-" + btn.dataset.tab).classList.add("active");
+    });
+  });
+
+  function dropzoneKur(zoneId, inputId, onFile){
+    const zone = $("#" + zoneId);
+    const input = $("#" + inputId);
+    ["dragenter","dragover"].forEach(evt => zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.add("drag"); }));
+    ["dragleave","drop"].forEach(evt => zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.remove("drag"); }));
+    zone.addEventListener("drop", e => onFile(e.dataTransfer.files[0]));
+    input.addEventListener("change", e => onFile(e.target.files[0]));
+  }
+
+  // ============ SEKME 1: TUM FONLAR ============
+  let FONLAR_VERI = [];
+  const FONLAR_GIZLI = new Set();
+  let fonlarSiralamaAlani = "getiri_1A_%";
+  let fonlarSiralamaYonu = -1;
+
+  dropzoneKur("dropzone-fonlar", "file-input-fonlar", (file) => {
+    if(!file) return;
+    const st = $("#status-fonlar");
+    st.className = "show"; st.innerHTML = `<b>${file.name}</b> okunuyor...`;
+    csvOku(file, fonlarIslemeAl, (msg)=>{ st.className="show err"; st.innerHTML=`<b>Hata:</b> dosya okunamadı (${msg}).`; });
+  });
+
+  function fonlarIslemeAl(rows, dosyaAdi){
+    const st = $("#status-fonlar");
+    if (!rows.length){ st.className="show err"; st.innerHTML="<b>Hata:</b> dosya boş görünüyor."; return; }
+    const gerekli = ["fund_code","fund_name","semsiye_turu"];
+    const kolonlar = Object.keys(rows[0]);
+    const eksik = gerekli.filter(k => !kolonlar.includes(k));
+    if (eksik.length){
+      st.className="show err";
+      st.innerHTML=`<b>Hata:</b> beklenen kolonlar eksik: ${eksik.join(", ")}. tefas_getiri_kategori.py çıktısı mı?`;
+      return;
+    }
+    const alanlar = ["getiri_1A_%","getiri_3A_%","getiri_6A_%","getiri_1Y_%","getiri_YBB_%","getiri_3Y_%","getiri_5Y_%","risk_degeri"];
+    FONLAR_VERI = rows.filter(r => r.fund_code && r.fund_code.trim() !== "").map(r => {
+      const obj = { fund_code:r.fund_code, fund_name:r.fund_name, semsiye_turu:r.semsiye_turu||"Diğer", fon_tipi:r.fon_tipi||"" };
+      alanlar.forEach(a => obj[a] = csvSayiParse(r[a]));
+      return obj;
+    });
+    FONLAR_GIZLI.clear();
+    $("#veri-tarihi").textContent = tarihiDosyaAdindanCikar(dosyaAdi);
+    st.className="show"; st.innerHTML = `<b>${FONLAR_VERI.length} fon</b> yüklendi (${dosyaAdi}).`;
+    $("#kpis-fonlar").style.display = "grid";
+    $("#controls-fonlar").style.display = "flex";
+    $("#table-wrap-fonlar").style.display = "block";
+    $("#empty-fonlar").style.display = "none";
+    fonlarKategoriSeridi();
+    fonlarCiz();
+  }
+
+  function fonlarKategoriSeridi(){
+    const sayac = {};
+    FONLAR_VERI.forEach(r => sayac[r.semsiye_turu] = (sayac[r.semsiye_turu]||0)+1);
+    const kats = Object.keys(sayac).sort((a,b)=>sayac[b]-sayac[a]);
+    const wrap = $("#kategori-serit-fonlar");
+    wrap.innerHTML = "";
+    kats.forEach(kat => {
+      const pill = document.createElement("div");
+      pill.className = "pill";
+      pill.innerHTML = `<span class="sw" style="background:${renkAl(kat)}"></span>${kat} <span class="ct">${sayac[kat]}</span>`;
+      pill.addEventListener("click", () => {
+        if (FONLAR_GIZLI.has(kat)) FONLAR_GIZLI.delete(kat); else FONLAR_GIZLI.add(kat);
+        pill.classList.toggle("off", FONLAR_GIZLI.has(kat));
+        fonlarCiz();
+      });
+      wrap.appendChild(pill);
+    });
+  }
+
+  function fonlarFiltreli(){
+    const q = $("#arama-fonlar").value.trim().toLocaleLowerCase("tr");
+    return FONLAR_VERI.filter(r => {
+      if (FONLAR_GIZLI.has(r.semsiye_turu)) return false;
+      if (!q) return true;
+      return (r.fund_code||"").toLocaleLowerCase("tr").includes(q) || (r.fund_name||"").toLocaleLowerCase("tr").includes(q);
+    });
+  }
+
+  function fonlarSirali(){
+    const data = fonlarFiltreli();
+    const alan = fonlarSiralamaAlani;
+    data.sort((a,b) => {
+      let va=a[alan], vb=b[alan];
+      if (alan === "fund_code") return fonlarSiralamaYonu * String(va||"").localeCompare(String(vb||""),"tr");
+      const na=(va===null||va===undefined), nb=(vb===null||vb===undefined);
+      if (na&&nb) return 0; if (na) return 1; if (nb) return -1;
+      return fonlarSiralamaYonu * (va-vb);
+    });
+    return data;
+  }
+
+  function hucreGetiri(v){
+    if (v === null || v === undefined) return `<td class="g na">—</td>`;
+    const cls = v>0?"pos":(v<0?"neg":"");
+    return `<td class="g ${cls} num">${v>0?"+":""}${v.toFixed(2)}</td>`;
+  }
+
+  function riskNoktalari(risk){
+    const r = Number(risk)||0;
+    let html = '<span class="risk-dot-row">';
+    for (let i=1;i<=7;i++) html += `<span class="risk-dot ${i<=r?"on":""}"></span>`;
+    return html + '</span>';
+  }
+
+  function fonlarCiz(){
+    const data = fonlarSirali();
+    $("#tbody-fonlar").innerHTML = data.map(r => `
+      <tr>
+        <td class="kod">${r.fund_code}</td>
+        <td class="ad" title="${r.fund_name}">${r.fund_name}</td>
+        <td class="kat"><span class="kat-pill"><span class="sw" style="background:${renkAl(r.semsiye_turu)}"></span>${r.semsiye_turu}</span></td>
+        <td>${riskNoktalari(r.risk_degeri)}</td>
+        ${hucreGetiri(r["getiri_1A_%"])}
+        ${hucreGetiri(r["getiri_3A_%"])}
+        ${hucreGetiri(r["getiri_6A_%"])}
+        ${hucreGetiri(r["getiri_1Y_%"])}
+        ${hucreGetiri(r["getiri_YBB_%"])}
+        ${hucreGetiri(r["getiri_3Y_%"])}
+        ${hucreGetiri(r["getiri_5Y_%"])}
+      </tr>`).join("");
+    $("#row-count-fonlar").textContent = `${data.length} / ${FONLAR_VERI.length} fon gösteriliyor`;
+    document.querySelectorAll("#tablo-fonlar thead th").forEach(th => {
+      th.classList.toggle("sorted", th.dataset.key === fonlarSiralamaAlani);
+      const arrow = th.querySelector(".arrow");
+      if (th.dataset.key === fonlarSiralamaAlani) arrow.textContent = fonlarSiralamaYonu===-1?"▼":"▲";
+    });
+    fonlarKpiGuncelle(data);
+  }
+
+  function ortalama(arr){
+    const v = arr.filter(x => x!==null && x!==undefined);
+    return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null;
+  }
+
+  function fonlarKpiGuncelle(data){
+    $("#kpi-toplam").textContent = data.length;
+    const setDeger = (id, v) => {
+      const el = $(id);
+      if (v===null){ el.textContent="—"; el.className="value"; return; }
+      el.textContent = (v>0?"+":"")+v.toFixed(2)+"%";
+      el.className = "value "+(v>0?"pos":(v<0?"neg":""));
+    };
+    setDeger("#kpi-ort1a", ortalama(data.map(r=>r["getiri_1A_%"])));
+    setDeger("#kpi-ortybb", ortalama(data.map(r=>r["getiri_YBB_%"])));
+    const gecerli = data.filter(r => r["getiri_1A_%"]!==null && r["getiri_1A_%"]!==undefined);
+    if (gecerli.length){
+      const enIyi = gecerli.reduce((a,b)=> a["getiri_1A_%"]>b["getiri_1A_%"]?a:b);
+      const enKotu = gecerli.reduce((a,b)=> a["getiri_1A_%"]<b["getiri_1A_%"]?a:b);
+      $("#kpi-en-iyi").textContent = `${enIyi.fund_code} +${enIyi["getiri_1A_%"].toFixed(1)}%`;
+      $("#kpi-en-kotu").textContent = `${enKotu.fund_code} ${enKotu["getiri_1A_%"].toFixed(1)}%`;
+    } else {
+      $("#kpi-en-iyi").textContent = "—"; $("#kpi-en-kotu").textContent = "—";
+    }
+  }
+
+  $("#arama-fonlar").addEventListener("input", fonlarCiz);
+  $("#siralama-alani-fonlar").addEventListener("change", e => { fonlarSiralamaAlani=e.target.value; fonlarSiralamaYonu=-1; fonlarCiz(); });
+  document.querySelectorAll("#tablo-fonlar thead th").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.key;
+      if (fonlarSiralamaAlani===key) fonlarSiralamaYonu*=-1; else { fonlarSiralamaAlani=key; fonlarSiralamaYonu=-1; }
+      $("#siralama-alani-fonlar").value = key;
+      fonlarCiz();
+    });
+  });
+
+  // ============ SEKME 2: PORTFOYUM ============
+  let PORTFOY_VERI = [];
+  let portfoySiralamaAlani = "guncel_deger_tl";
+  let portfoySiralamaYonu = -1;
+
+  dropzoneKur("dropzone-portfoy", "file-input-portfoy", (file) => {
+    if(!file) return;
+    const st = $("#status-portfoy");
+    st.className = "show"; st.innerHTML = `<b>${file.name}</b> okunuyor...`;
+    csvOku(file, portfoyIslemeAl, (msg)=>{ st.className="show err"; st.innerHTML=`<b>Hata:</b> dosya okunamadı (${msg}).`; });
+  });
+
+  function portfoyIslemeAl(rows, dosyaAdi){
+    const st = $("#status-portfoy");
+    if (!rows.length){ st.className="show err"; st.innerHTML="<b>Hata:</b> dosya boş görünüyor."; return; }
+    const gerekli = ["fon_kodu","fon_adi","toplam_pay","guncel_deger_tl"];
+    const kolonlar = Object.keys(rows[0]);
+    const eksik = gerekli.filter(k => !kolonlar.includes(k));
+    if (eksik.length){
+      st.className="show err";
+      st.innerHTML=`<b>Hata:</b> beklenen kolonlar eksik: ${eksik.join(", ")}. tefas_portfoy_degerle.py çıktısı mı?`;
+      return;
+    }
+    const sayisalAlanlar = ["toplam_pay","agirlikli_ort_alis_fiyati","toplam_maliyet_tl","guncel_fiyat","guncel_deger_tl","kar_zarar_tl","kar_zarar_%","risk_degeri","gunluk_ortalama_kazanc_%"];
+    PORTFOY_VERI = rows.filter(r => r.fon_kodu && r.fon_kodu.trim()!=="").map(r => {
+      const obj = { fon_kodu:r.fon_kodu, fon_adi:r.fon_adi, semsiye_turu:r.semsiye_turu||"Diğer" };
+      sayisalAlanlar.forEach(a => obj[a]=csvSayiParse(r[a]));
+      return obj;
+    });
+    st.className="show"; st.innerHTML = `<b>${PORTFOY_VERI.length} fon</b> yüklendi (${dosyaAdi}).`;
+    $("#kpis-portfoy").style.display = "grid";
+    $("#controls-portfoy").style.display = "flex";
+    $("#table-wrap-portfoy").style.display = "block";
+    $("#empty-portfoy").style.display = "none";
+    portfoyCiz();
+  }
+
+  function portfoyFiltreli(){
+    const q = $("#arama-portfoy").value.trim().toLocaleLowerCase("tr");
+    if (!q) return PORTFOY_VERI;
+    return PORTFOY_VERI.filter(r => (r.fon_kodu||"").toLocaleLowerCase("tr").includes(q) || (r.fon_adi||"").toLocaleLowerCase("tr").includes(q));
+  }
+
+  function portfoySirali(){
+    const data = portfoyFiltreli().slice();
+    const alan = portfoySiralamaAlani;
+    data.sort((a,b) => {
+      let va=a[alan], vb=b[alan];
+      if (alan === "fon_kodu") return portfoySiralamaYonu * String(va||"").localeCompare(String(vb||""),"tr");
+      const na=(va===null||va===undefined), nb=(vb===null||vb===undefined);
+      if (na&&nb) return 0; if (na) return 1; if (nb) return -1;
+      return portfoySiralamaYonu * (va-vb);
+    });
+    return data;
+  }
+
+  function hucreTL(v){
+    if (v===null||v===undefined||Number.isNaN(v)) return `<td class="num">—</td>`;
+    return `<td class="num">${v.toLocaleString("tr-TR",{maximumFractionDigits:2})}</td>`;
+  }
+  function hucreKZ(v, birim){
+    if (v===null||v===undefined||Number.isNaN(v)) return `<td class="g na">—</td>`;
+    const cls = v>0?"pos":(v<0?"neg":"");
+    const isaret = v>0?"+":"";
+    let metin;
+    if (birim === "yuzde2") metin = `${isaret}${v.toFixed(2)}%`;
+    else if (birim === "yuzde4") metin = `${isaret}${v.toFixed(4)}%`;
+    else metin = `${isaret}${v.toLocaleString("tr-TR",{maximumFractionDigits:2})}`;
+    return `<td class="g ${cls} num">${metin}</td>`;
+  }
+
+  function portfoyCiz(){
+    const data = portfoySirali();
+    $("#tbody-portfoy").innerHTML = data.map(r => `
+      <tr>
+        <td class="kod">${r.fon_kodu}</td>
+        <td class="ad" title="${r.fon_adi}">${r.fon_adi}</td>
+        <td class="kat">${r.semsiye_turu ? `<span class="kat-pill"><span class="sw" style="background:${renkAl(r.semsiye_turu)}"></span>${r.semsiye_turu}</span>` : '<span class="g na">—</span>'}</td>
+        <td class="num">${r.toplam_pay!=null ? r.toplam_pay.toLocaleString("tr-TR",{maximumFractionDigits:2}) : "—"}</td>
+        <td class="num">${r.agirlikli_ort_alis_fiyati!=null ? r.agirlikli_ort_alis_fiyati.toFixed(4) : "—"}</td>
+        <td class="num">${r.guncel_fiyat!=null ? r.guncel_fiyat.toFixed(4) : "—"}</td>
+        ${hucreTL(r.toplam_maliyet_tl)}
+        ${hucreTL(r.guncel_deger_tl)}
+        ${hucreKZ(r.kar_zarar_tl,"tl")}
+        ${hucreKZ(r["kar_zarar_%"],"yuzde2")}
+        ${hucreKZ(r["gunluk_ortalama_kazanc_%"],"yuzde4")}
+      </tr>`).join("");
+    $("#row-count-portfoy").textContent = `${data.length} / ${PORTFOY_VERI.length} fon gösteriliyor`;
+    document.querySelectorAll("#tablo-portfoy thead th").forEach(th => {
+      th.classList.toggle("sorted", th.dataset.key === portfoySiralamaAlani);
+      const arrow = th.querySelector(".arrow");
+      if (arrow && th.dataset.key === portfoySiralamaAlani) arrow.textContent = portfoySiralamaYonu===-1?"▼":"▲";
+    });
+    portfoyKpiGuncelle(data);
+  }
+
+  function portfoyKpiGuncelle(data){
+    const toplamMaliyet = data.reduce((s,r)=> s + (r.toplam_maliyet_tl||0), 0);
+    const toplamDeger = data.reduce((s,r)=> s + (r.guncel_deger_tl||0), 0);
+    const toplamKZ = toplamDeger - toplamMaliyet;
+    const toplamKZPct = toplamMaliyet ? (toplamDeger/toplamMaliyet - 1)*100 : null;
+
+    $("#kpi-p-maliyet").textContent = tlFmt(toplamMaliyet);
+    $("#kpi-p-deger").textContent = tlFmt(toplamDeger);
+
+    const kzEl = $("#kpi-p-kz");
+    kzEl.textContent = (toplamKZ>0?"+":"") + tlFmt(toplamKZ);
+    kzEl.className = "value " + (toplamKZ>0?"pos":(toplamKZ<0?"neg":""));
+
+    const kzPctEl = $("#kpi-p-kzpct");
+    if (toplamKZPct===null){ kzPctEl.textContent="—"; kzPctEl.className="value"; }
+    else{
+      kzPctEl.textContent = (toplamKZPct>0?"+":"")+toplamKZPct.toFixed(2)+"%";
+      kzPctEl.className = "value "+(toplamKZPct>0?"pos":(toplamKZPct<0?"neg":""));
+    }
+    $("#kpi-p-sayi").textContent = data.length;
+  }
+
+  $("#arama-portfoy").addEventListener("input", portfoyCiz);
+  $("#siralama-alani-portfoy").addEventListener("change", e => { portfoySiralamaAlani=e.target.value; portfoySiralamaYonu=-1; portfoyCiz(); });
+  document.querySelectorAll("#tablo-portfoy thead th").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.key;
+      if (portfoySiralamaAlani===key) portfoySiralamaYonu*=-1; else { portfoySiralamaAlani=key; portfoySiralamaYonu=-1; }
+      $("#siralama-alani-portfoy").value = key;
+      portfoyCiz();
+    });
+  });
+
+  // ============ SEKME 3: KATEGORI DAGILIMI (PASTA GRAFIK) ============
+  dropzoneKur("dropzone-dagilim", "file-input-dagilim", (file) => {
+    if(!file) return;
+    const st = $("#status-dagilim");
+    st.className = "show"; st.innerHTML = `<b>${file.name}</b> okunuyor...`;
+    csvOku(file, dagilimIslemeAl, (msg)=>{ st.className="show err"; st.innerHTML=`<b>Hata:</b> dosya okunamadı (${msg}).`; });
+  });
+
+  function polarNokta(cx, cy, r, aciDerece){
+    const aciRad = (aciDerece - 90) * Math.PI / 180;
+    return { x: cx + r * Math.cos(aciRad), y: cy + r * Math.sin(aciRad) };
+  }
+
+  function dilimYolu(cx, cy, r, baslangicDerece, bitisDerece){
+    const bas = polarNokta(cx, cy, r, bitisDerece);
+    const bit = polarNokta(cx, cy, r, baslangicDerece);
+    const buyukYay = (bitisDerece - baslangicDerece) > 180 ? 1 : 0;
+    return `M ${cx} ${cy} L ${bas.x.toFixed(2)} ${bas.y.toFixed(2)} A ${r} ${r} 0 ${buyukYay} 0 ${bit.x.toFixed(2)} ${bit.y.toFixed(2)} Z`;
+  }
+
+  function pastaCiz(veri){
+    const boyut = 280;
+    const r = 120;
+    const cx = boyut/2, cy = boyut/2;
+    let aci = 0;
+    const dilimler = veri.map((row, i) => {
+      const genislikDerece = (row.agirlik/100) * 360;
+      const yol = dilimYolu(cx, cy, r, aci, aci + genislikDerece);
+      aci += genislikDerece;
+      const renk = KATEGORI_RENK[row.semsiye_turu] || renkSirali(i);
+      return `<path d="${yol}" fill="${renk}" stroke="#F7F5F0" stroke-width="2"/>`;
+    }).join("");
+
+    return `<svg width="${boyut}" height="${boyut}" viewBox="0 0 ${boyut} ${boyut}">
+      ${dilimler}
+      <circle cx="${cx}" cy="${cy}" r="52" fill="#F7F5F0" stroke="#DBD5C7" stroke-width="1"/>
+    </svg>`;
+  }
+
+  function dagilimIslemeAl(rows, dosyaAdi){
+    const st = $("#status-dagilim");
+    if (!rows.length){ st.className="show err"; st.innerHTML="<b>Hata:</b> dosya boş görünüyor."; return; }
+    const gerekli = ["semsiye_turu","guncel_deger_tl","agirlik_%"];
+    const kolonlar = Object.keys(rows[0]);
+    const eksik = gerekli.filter(k => !kolonlar.includes(k));
+    if (eksik.length){
+      st.className="show err";
+      st.innerHTML=`<b>Hata:</b> beklenen kolonlar eksik: ${eksik.join(", ")}. portfoy_kategori_dagilimi.csv mi?`;
+      return;
+    }
+    const veri = rows.filter(r=>r.semsiye_turu).map(r => ({
+      semsiye_turu: r.semsiye_turu,
+      guncel_deger_tl: csvSayiParse(r.guncel_deger_tl),
+      agirlik: csvSayiParse(r["agirlik_%"]),
+    })).sort((a,b)=> b.agirlik - a.agirlik);
+
+    st.className="show"; st.innerHTML = `<b>${veri.length} kategori</b> yüklendi (${dosyaAdi}).`;
+    $("#empty-dagilim").style.display = "none";
+    $("#pie-wrap").style.display = "flex";
+
+    $("#pie-svg-holder").innerHTML = pastaCiz(veri);
+
+    $("#pie-legend").innerHTML = veri.map((row,i) => `
+      <div class="legend-row">
+        <span class="sw" style="background:${KATEGORI_RENK[row.semsiye_turu] || renkSirali(i)}"></span>
+        <span class="ad">${row.semsiye_turu}</span>
+        <div style="text-align:right">
+          <div class="pct">${row.agirlik.toFixed(1)}%</div>
+          <div class="tl">${tlFmt(row.guncel_deger_tl)}</div>
+        </div>
+      </div>`).join("");
+  }
+
+})();
+</script>
+
+</body>
+</html>
