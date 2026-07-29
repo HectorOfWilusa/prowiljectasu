@@ -107,11 +107,29 @@ def csv_yukle_ve_sifrele(dosya_yolu: Path, sifre: str, cikti_adi: str) -> bool:
         return False
 
     df = pd.read_csv(dosya_yolu, sep=";", decimal=",", encoding="utf-8-sig")
+
     # JSON'a cevirirken virgullu-TR sayi formatindan kacinmak icin
     # standart (nokta ondalikli) JSON kullaniyoruz - dashboard tarafinda
     # ekstra parse karmasasi olmasin diye.
     kayitlar = df.to_dict(orient="records")
-    json_metin = json.dumps(kayitlar, ensure_ascii=False)
+
+    # ONEMLI: pandas'ta bos/eksik sayisal hucreler NaN olarak durur, ve
+    # float tipli sutunlarda DataFrame.where(...) ile None atamaya calismak
+    # ISE YARAMAZ - pandas None'u otomatik olarak tekrar NaN'a cevirir
+    # (float sutunlarda None kavramsal olarak yoktur). Bu yuzden temizligi
+    # DataFrame uzerinde degil, to_dict() ile Python native dict'e
+    # gectikten SONRA yapiyoruz - orada artik gercek None atanabiliyor.
+    #
+    # Python'un json.dumps() fonksiyonu NaN'i sessizce yazar ama bu GECERSIZ
+    # JSON'dur (standart disi) - tarayicinin JSON.parse()'i bunu reddeder.
+    def nan_temizle(satir: dict) -> dict:
+        return {k: (None if isinstance(v, float) and v != v else v) for k, v in satir.items()}
+
+    kayitlar = [nan_temizle(satir) for satir in kayitlar]
+
+    # allow_nan=False: eger yukaridaki temizlik bir sekilde eksik kalirsa,
+    # sessizce gecersiz JSON uretmek yerine burada acikca hata versin.
+    json_metin = json.dumps(kayitlar, ensure_ascii=False, allow_nan=False)
 
     paket = sifrele(json_metin.encode("utf-8"), sifre)
     hedef = SIFRELI_KLASOR / cikti_adi

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>TEFAS Tanı Sayfası</title>
+<style>
+  body{ font-family: monospace; background:#1a1a1a; color:#e0e0e0; padding:20px; font-size:14px; line-height:1.6; }
+  h2{ color:#8FA9C7; }
+  .ok{ color:#4C7A5E; }
+  .err{ color:#A85C43; font-weight:bold; }
+  input{ padding:10px; font-size:14px; width:300px; }
+  button{ padding:10px 20px; font-size:14px; cursor:pointer; }
+  pre{ background:#0d0d0d; padding:12px; border-radius:6px; overflow-x:auto; white-space:pre-wrap; word-break:break-all; }
+</style>
+</head>
+<body>
+
+<h2>TEFAS Bulut Tanı Sayfası</h2>
+<p>Bu sayfa sadece test amaçlıdır. Şifreni gir, "Test Et" butonuna bas, sonuçlar aşağıda listelenecek.</p>
+
+<input type="password" id="sifre" placeholder="Şifreni yaz">
+<button onclick="testEt()">Test Et</button>
+
+<div id="sonuclar"></div>
+
+<script>
+const GITHUB_RAW_TEMEL = "https://raw.githubusercontent.com/HectorOfWilusa/prowiljectasu/main/sifreli";
+
+function yaz(html){
+  document.getElementById("sonuclar").innerHTML += html;
+}
+
+function b64ToBytes(b64){ return Uint8Array.from(atob(b64), c => c.charCodeAt(0)); }
+
+async function sifreliJsonCoz(paket, sifre){
+  const salt = b64ToBytes(paket.salt);
+  const iv = b64ToBytes(paket.iv);
+  const veri = b64ToBytes(paket.veri);
+  const sifreKey = await crypto.subtle.importKey('raw', new TextEncoder().encode(sifre), 'PBKDF2', false, ['deriveKey']);
+  const aesKey = await crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt, iterations: paket.iterasyon, hash:'SHA-256' },
+    sifreKey, { name:'AES-GCM', length:256 }, false, ['decrypt']
+  );
+  const cozulmus = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, aesKey, veri);
+  return JSON.parse(new TextDecoder().decode(cozulmus));
+}
+
+async function dosyayiTestEt(dosyaAdi, sifre){
+  yaz(`<h3>${dosyaAdi}</h3>`);
+  try {
+    const url = `${GITHUB_RAW_TEMEL}/${dosyaAdi}?t=${Date.now()}`;
+    yaz(`<div>URL: ${url}</div>`);
+    const yanit = await fetch(url);
+    yaz(`<div>HTTP Status: <b>${yanit.status}</b></div>`);
+    if (!yanit.ok){
+      yaz(`<div class="err">İndirme başarısız (HTTP ${yanit.status})</div>`);
+      return;
+    }
+    const metin = await yanit.text();
+    yaz(`<div>İndirilen veri boyutu: ${metin.length} karakter</div>`);
+    yaz(`<div>İlk 200 karakter: <pre>${metin.slice(0,200).replace(/</g,"&lt;")}</pre></div>`);
+
+    let paket;
+    try {
+      paket = JSON.parse(metin);
+      yaz(`<div class="ok">JSON parse başarılı. Anahtarlar: ${Object.keys(paket).join(", ")}</div>`);
+    } catch(e){
+      yaz(`<div class="err">JSON parse HATASI: ${e.message}</div>`);
+      return;
+    }
+
+    try {
+      const cozulmus = await sifreliJsonCoz(paket, sifre);
+      yaz(`<div class="ok">ŞIFRE ÇÖZME BAŞARILI. Kayıt sayısı: ${Array.isArray(cozulmus) ? cozulmus.length : "dizi değil"}</div>`);
+      yaz(`<div>Örnek ilk kayıt: <pre>${JSON.stringify(cozulmus[0] || cozulmus, null, 2)}</pre></div>`);
+    } catch(e){
+      yaz(`<div class="err">ŞIFRE ÇÖZME HATASI: ${e.message} (şifre yanlış olabilir)</div>`);
+    }
+  } catch(e){
+    yaz(`<div class="err">GENEL HATA: ${e.message}</div>`);
+  }
+}
+
+async function testEt(){
+  document.getElementById("sonuclar").innerHTML = "<p>Test ediliyor...</p>";
+  document.getElementById("sonuclar").innerHTML = "";
+  const sifre = document.getElementById("sifre").value;
+  if (!sifre){ yaz('<div class="err">Şifre boş olamaz.</div>'); return; }
+
+  await dosyayiTestEt("fonlar.enc.json", sifre);
+  await dosyayiTestEt("portfoy.enc.json", sifre);
+  await dosyayiTestEt("kategori.enc.json", sifre);
+}
+</script>
+
+</body>
+</html>
