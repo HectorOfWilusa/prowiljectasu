@@ -192,10 +192,6 @@
     border:1px solid var(--line); background:var(--panel);
     cursor:pointer; user-select:none; color:var(--text-dim);
   }
-  .fon-tipi-toggle.kilitli{
-    cursor:default; opacity:1;
-    border-color:var(--accent-2); background:var(--accent-dim); color:var(--text);
-  }
   .fon-tipi-toggle .anahtar{
     width:30px; height:17px; border-radius:999px;
     background:var(--line); position:relative; flex:0 0 auto;
@@ -208,8 +204,6 @@
   }
   .fon-tipi-toggle.acik .anahtar{ background:var(--accent-2); }
   .fon-tipi-toggle.acik .anahtar::after{ left:15px; }
-  .fon-tipi-toggle.kilitli .anahtar{ background:var(--accent-2); opacity:.55; }
-  .fon-tipi-toggle.kilitli .anahtar::after{ left:15px; }
   .fon-tipi-toggle .ct{ color:var(--text-faint); font-weight:500; }
   .pill{
     display:inline-flex; align-items:center; gap:7px;
@@ -523,9 +517,9 @@
     fonlarCiz();
   }
 
-  // Fon tipi filtresi: YAT (yatirim fonlari) her zaman acik ve kilitli.
-  // EMK (emeklilik) ve BYF (borsa yatirim fonu) varsayilan olarak KAPALI -
-  // kullanici isterse acabilir, sayfa her acilista varsayilana doner.
+  // Fon tipi filtresi: YAT (yatirim fonlari) varsayilan ACIK, EMK (emeklilik)
+  // ve BYF (borsa yatirim fonu) varsayilan KAPALI. Ucu de serbestce
+  // acilip kapanabilir - sayfa her yenilendiginde varsayilana doner.
   const FON_TIPI_ETIKET = { YAT: "Yatırım Fonları", EMK: "Emeklilik Fonları", BYF: "Borsa Yatırım Fonları" };
   const FON_TIPI_ACIK = { YAT: true, EMK: false, BYF: false };
 
@@ -536,18 +530,15 @@
     wrap.innerHTML = `<span class="baslik">Fon Tipi</span>`;
     ["YAT","EMK","BYF"].forEach(tip => {
       if (!sayac[tip]) return; // veri icinde o tip hic yoksa gosterme
-      const kilitli = tip === "YAT";
       const toggle = document.createElement("div");
-      toggle.className = "fon-tipi-toggle" + (kilitli ? " kilitli" : (FON_TIPI_ACIK[tip] ? " acik" : ""));
+      toggle.className = "fon-tipi-toggle" + (FON_TIPI_ACIK[tip] ? " acik" : "");
       toggle.innerHTML = `<span class="anahtar"></span>${FON_TIPI_ETIKET[tip]} <span class="ct">${sayac[tip]}</span>`;
-      if (!kilitli){
-        toggle.addEventListener("click", () => {
-          FON_TIPI_ACIK[tip] = !FON_TIPI_ACIK[tip];
-          toggle.classList.toggle("acik", FON_TIPI_ACIK[tip]);
-          fonlarKategoriSeridi();
-          fonlarCiz();
-        });
-      }
+      toggle.addEventListener("click", () => {
+        FON_TIPI_ACIK[tip] = !FON_TIPI_ACIK[tip];
+        toggle.classList.toggle("acik", FON_TIPI_ACIK[tip]);
+        fonlarKategoriSeridi();
+        fonlarCiz();
+      });
       wrap.appendChild(toggle);
     });
   }
