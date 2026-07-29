@@ -10,6 +10,7 @@ REM Python yolu otomatik bulunamazsa asagidaki satiri kendi yolunla degistir
 REM ornek: set PY="C:\Users\Alptug\AppData\Local\Programs\Python\Python312\python.exe"
 set PY=python
 
+set TEFAS_PANO_SIFRE=Claude.2026.Tefas
 %PY% tefas_ana.py
 
 if errorlevel 1 (

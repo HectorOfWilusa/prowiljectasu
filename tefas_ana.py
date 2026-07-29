@@ -4,14 +4,22 @@ TEFAS Gunluk Calisma - Ana Script (Gorev Zamanlayici bunu cagirir)
 Her is gunu 10:10'da calisir. Sirasiyla:
   1) tefas_gunluk.py            -> fiyat + varlik dagilimi (pytefas)
   2) tefas_getiri_kategori.py   -> semsiye turu + risk + hazir getiriler
+  3) tefas_portfoy_degerle.py   -> portfoy degerleme (portfoyum_ozet.csv varsa)
+  4) tefas_sifrele.py           -> dashboard icin CSV'leri sifreler (TEFAS_PANO_SIFRE gerekir)
+  5) tefas_git_gonder.py        -> sifreli dosyalari GitHub'a gonderir
 
-Ikisi de kendi log kayitlarini TEFAS_VERI/log.txt'e yazar.
+Hepsi kendi log kayitlarini TEFAS_VERI/log.txt'e yazar.
 Bu script sadece sirasiyla cagirir ve genel bir ozet basar.
+
+4. ve 5. adimlar GitHub/sifreleme kurulumu henuz yapilmadiysa (ortam
+degiskeni veya git repo yoksa) sessizce atlanir - ilk iki/uc adim her
+zaman calisir, mevcut yerel kullanim bozulmaz.
 
 Kullanim:
   python tefas_ana.py
 """
 
+import os
 import sys
 import subprocess
 import logging
@@ -64,9 +72,28 @@ def main() -> int:
         log.info("portfoyum_ozet.csv bulunamadi, portfoy degerleme adimi atlaniyor.")
         sonuc_3 = True
 
+    # Sifreleme + GitHub'a gonderme, sadece kurulum tamamlanmissa calisir.
+    # TEFAS_PANO_SIFRE yoksa (yani bulut/sifreleme kurulumu henuz yapilmadiysa)
+    # bu iki adim sessizce atlanir - yerel kullanimda hicbir sey bozulmaz.
+    sifre_var = bool(os.environ.get("TEFAS_PANO_SIFRE"))
+    git_repo_var = (BU_KLASOR / ".git").exists()
+
+    if sifre_var:
+        sonuc_4 = calistir("tefas_sifrele.py")
+    else:
+        log.info("TEFAS_PANO_SIFRE tanimli degil, sifreleme adimi atlaniyor.")
+        sonuc_4 = True
+
+    if sifre_var and git_repo_var:
+        sonuc_5 = calistir("tefas_git_gonder.py")
+    else:
+        if not git_repo_var:
+            log.info("Git reposu bulunamadi (.git yok), GitHub'a gonderme adimi atlaniyor.")
+        sonuc_5 = True
+
     sure = (datetime.now() - baslangic).total_seconds()
     log.info("-"*60)
-    if sonuc_1 and sonuc_2 and sonuc_3:
+    if sonuc_1 and sonuc_2 and sonuc_3 and sonuc_4 and sonuc_5:
         log.info("TUM ADIMLAR BASARILI. Sure: %.0f saniye", sure)
         donus = 0
     else:

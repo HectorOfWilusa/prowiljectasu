@@ -253,6 +253,29 @@
   <button class="tab-btn" data-tab="kategori">Kategori Dağılımı</button>
 </div>
 
+<div class="drop-wrap" id="bulut-giris-wrap">
+  <div class="dropzone" id="bulut-giris-kutu" style="flex-direction:column; align-items:stretch; gap:14px;">
+    <div style="display:flex; align-items:center; gap:16px;">
+      <div class="ic">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15v-6M9 12l3 3 3-3M3 15a4 4 0 0 0 0 8h13a5 5 0 0 0 1-9.9A6 6 0 0 0 5.3 9.7 4 4 0 0 0 3 15z"/></svg>
+      </div>
+      <div class="txt">
+        <b>Buluttan otomatik yükle</b>
+        <small>GitHub'daki şifreli veriyi çözmek için şifreni gir — dosya seçmene gerek kalmaz</small>
+      </div>
+    </div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <input type="password" id="bulut-sifre" placeholder="Pano şifresi..." autocomplete="off"
+        style="flex:1; min-width:200px; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:7px; padding:9px 12px; font-size:13.5px;">
+      <button class="btn primary" id="bulut-yukle-btn">Yükle</button>
+      <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-faint); cursor:pointer;">
+        <input type="checkbox" id="bulut-hatirla"> bu cihazda hatırla
+      </label>
+    </div>
+  </div>
+  <div class="status-line" id="status-bulut"></div>
+</div>
+
 <div class="tab-panel active" id="panel-tum-fonlar">
 
   <div class="drop-wrap">
@@ -835,6 +858,114 @@
         </div>
       </div>`).join("");
   }
+
+  // ============ BULUT MODU: GitHub'dan sifreli veri cekme ============
+  //
+  // Web Crypto API (tarayicida yerlesik, kutuphane gerekmez) ile
+  // tefas_sifrele.py'nin urettigi AES-256-GCM paketini cozer.
+  // Cozulen JSON, mevcut fonlarIslemeAl/portfoyIslemeAl/dagilimIslemeAl
+  // fonksiyonlarina "sahte dosya adi" ile gonderilir - boylece surukle-
+  // birak mantigi hic degistirilmeden tekrar kullanilir.
+
+  // BURAYI DEGISTIR: kendi GitHub kullanici adin ve repo adinla degistir.
+  const GITHUB_RAW_TEMEL = "https://raw.githubusercontent.com/HectorOfWilusa/prowiljectasu/main/sifreli";
+
+  function b64ToBytes(b64){ return Uint8Array.from(atob(b64), c => c.charCodeAt(0)); }
+
+  async function sifreliJsonCoz(paket, sifre){
+    const salt = b64ToBytes(paket.salt);
+    const iv = b64ToBytes(paket.iv);
+    const veri = b64ToBytes(paket.veri);
+
+    const sifreKey = await crypto.subtle.importKey(
+      'raw', new TextEncoder().encode(sifre), 'PBKDF2', false, ['deriveKey']
+    );
+    const aesKey = await crypto.subtle.deriveKey(
+      { name:'PBKDF2', salt, iterations: paket.iterasyon, hash:'SHA-256' },
+      sifreKey, { name:'AES-GCM', length:256 }, false, ['decrypt']
+    );
+    const cozulmus = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, aesKey, veri);
+    return JSON.parse(new TextDecoder().decode(cozulmus));
+  }
+
+  async function githubtanCekVeCoz(dosyaAdi, sifre){
+    const url = `${GITHUB_RAW_TEMEL}/${dosyaAdi}?t=${Date.now()}`; // cache'i atla
+    const yanit = await fetch(url);
+    if (!yanit.ok){
+      throw new Error(`${dosyaAdi} indirilemedi (HTTP ${yanit.status}). Dosya GitHub'a hic gonderilmemis olabilir.`);
+    }
+    const paket = await yanit.json();
+    return sifreliJsonCoz(paket, sifre);
+  }
+
+  function localStorageDestekliMi(){
+    try { const k = "__test__"; localStorage.setItem(k,"1"); localStorage.removeItem(k); return true; }
+    catch(e){ return false; }
+  }
+
+  async function bulutYukle(){
+    const sifre = $("#bulut-sifre").value;
+    const st = $("#status-bulut");
+    if (!sifre){
+      st.className = "show err"; st.innerHTML = "<b>Hata:</b> şifre boş olamaz.";
+      return;
+    }
+    st.className = "show"; st.innerHTML = "Buluttan veri çekiliyor...";
+
+    let basariliSayisi = 0;
+    let hataMesaji = null;
+
+    try {
+      const fonlar = await githubtanCekVeCoz("fonlar.enc.json", sifre);
+      fonlarIslemeAl(fonlar, "getiri_kategori_bulut.csv");
+      basariliSayisi++;
+    } catch(e){ hataMesaji = e.message; }
+
+    try {
+      const portfoy = await githubtanCekVeCoz("portfoy.enc.json", sifre);
+      portfoyIslemeAl(portfoy, "portfoy_degerleme_bulut.csv");
+      basariliSayisi++;
+    } catch(e){ if(!hataMesaji) hataMesaji = e.message; }
+
+    try {
+      const kategori = await githubtanCekVeCoz("kategori.enc.json", sifre);
+      dagilimIslemeAl(kategori, "portfoy_kategori_dagilimi_bulut.csv");
+      basariliSayisi++;
+    } catch(e){ if(!hataMesaji) hataMesaji = e.message; }
+
+    if (basariliSayisi === 0){
+      st.className = "show err";
+      const yanlisSifreOlabilir = hataMesaji && !hataMesaji.includes("indirilemedi");
+      st.innerHTML = yanlisSifreOlabilir
+        ? "<b>Hata:</b> şifre yanlış olabilir, ya da veri henüz GitHub'a gönderilmemiş."
+        : `<b>Hata:</b> ${hataMesaji}`;
+      return;
+    }
+
+    st.className = "show";
+    st.innerHTML = `<b>${basariliSayisi}/3</b> veri seti başarıyla yüklendi.`;
+
+    if ($("#bulut-hatirla").checked && localStorageDestekliMi()){
+      try { sessionStorage.setItem("tefas_pano_sifre_gecici", sifre); } catch(e){}
+    }
+  }
+
+  $("#bulut-yukle-btn").addEventListener("click", bulutYukle);
+  $("#bulut-sifre").addEventListener("keydown", e => { if (e.key === "Enter") bulutYukle(); });
+
+  // Sayfa acildiginda, ayni oturumda (sekme kapanana kadar) sifre hatirlaniyorsa
+  // otomatik yukle - guvenlik icin bu SADECE sessionStorage'da tutulur, kalici
+  // localStorage'a hicbir zaman yazilmaz.
+  (function otomatikYuklemeDene(){
+    try {
+      const kayitliSifre = sessionStorage.getItem("tefas_pano_sifre_gecici");
+      if (kayitliSifre){
+        $("#bulut-sifre").value = kayitliSifre;
+        $("#bulut-hatirla").checked = true;
+        bulutYukle();
+      }
+    } catch(e){}
+  })();
 
 })();
 </script>

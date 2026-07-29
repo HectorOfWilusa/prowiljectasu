@@ -1,0 +1,36 @@
+name: TEFAS Gunluk Veri Cekme
+
+# TSI 10:10 = UTC 07:10 (Turkiye kisiyle: UTC+3)
+# Hafta ici her gun (Pazartesi-Cuma), GitHub'in cron'u UTC kullanir.
+# GitHub Actions'in yogun saatlerde 5-20 dakika gecikme yapabildigini
+# unutma - script zaten veri gelene kadar tekrar deniyor.
+on:
+  schedule:
+    - cron: '10 7 * * 1-5'
+  workflow_dispatch:  # "Run workflow" butonuyla elle de tetiklenebilir
+
+jobs:
+  veri-cek:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repoyu indir
+        uses: actions/checkout@v4
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Gerekli kutuphaneleri kur
+        run: pip install pytefas pandas pyarrow requests cryptography
+
+      - name: Git kimligini ayarla
+        run: |
+          git config user.name "tefas-otomasyon"
+          git config user.email "tefas-otomasyon@users.noreply.github.com"
+
+      - name: TEFAS verisini cek, sifrele, gonder
+        env:
+          TEFAS_PANO_SIFRE: ${{ secrets.TEFAS_PANO_SIFRE }}
+          HOME: ${{ github.workspace }}
+        run: python tefas_ana.py
