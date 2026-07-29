@@ -22,7 +22,7 @@ jobs:
           python-version: '3.12'
 
       - name: Gerekli kutuphaneleri kur
-        run: pip install pytefas pandas pyarrow requests cryptography
+        run: pip install pytefas pandas pyarrow requests cryptography tzdata
 
       - name: Git kimligini ayarla
         run: |

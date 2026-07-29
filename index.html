@@ -62,13 +62,24 @@
   #kilit-kutu .alt{
     color:var(--text-dim); font-size:13px; margin-bottom:28px;
   }
-  #kilit-kutu input[type=password]{
-    width:100%; background:var(--panel-2); border:1px solid var(--line);
-    color:var(--text); border-radius:8px; padding:13px 14px;
-    font-size:15px; text-align:center; letter-spacing:0.05em;
+  #kilit-sifre-wrap{
+    position:relative;
     margin-bottom:14px;
   }
-  #kilit-kutu input[type=password]:focus{ outline:none; border-color:var(--accent-2); }
+  #kilit-sifre-wrap input{
+    width:100%; background:var(--panel-2); border:1px solid var(--line);
+    color:var(--text); border-radius:8px; padding:13px 44px 13px 14px;
+    font-size:15px; text-align:center; letter-spacing:0.05em;
+  }
+  #kilit-sifre-wrap input:focus{ outline:none; border-color:var(--accent-2); }
+  #kilit-goz-btn{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%);
+    appearance:none; border:none; background:none;
+    color:var(--text-faint); cursor:pointer;
+    padding:6px; display:flex; align-items:center; justify-content:center;
+    border-radius:6px;
+  }
+  #kilit-goz-btn:hover{ color:var(--accent-2); }
   #kilit-buton{
     width:100%; appearance:none; border:1px solid var(--accent-2);
     background:var(--accent-2); color:#F7F5F0;
@@ -165,6 +176,41 @@
   .kpi .value.neg{ color:var(--neg); }
 
   .kategori-serit{ display:flex; flex-wrap:wrap; gap:8px; padding:18px 32px 0; }
+
+  .fon-tipi-serit{
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    padding:18px 32px 0;
+  }
+  .fon-tipi-serit .baslik{
+    font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--text-faint); font-weight:650; margin-right:4px;
+  }
+  .fon-tipi-toggle{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:6px 12px 6px 8px; border-radius:999px;
+    font-size:12.5px; font-weight:600;
+    border:1px solid var(--line); background:var(--panel);
+    cursor:pointer; user-select:none; color:var(--text-dim);
+  }
+  .fon-tipi-toggle.kilitli{
+    cursor:default; opacity:1;
+    border-color:var(--accent-2); background:var(--accent-dim); color:var(--text);
+  }
+  .fon-tipi-toggle .anahtar{
+    width:30px; height:17px; border-radius:999px;
+    background:var(--line); position:relative; flex:0 0 auto;
+    transition:background .15s ease;
+  }
+  .fon-tipi-toggle .anahtar::after{
+    content:""; position:absolute; top:2px; left:2px;
+    width:13px; height:13px; border-radius:50%;
+    background:#fff; transition:left .15s ease;
+  }
+  .fon-tipi-toggle.acik .anahtar{ background:var(--accent-2); }
+  .fon-tipi-toggle.acik .anahtar::after{ left:15px; }
+  .fon-tipi-toggle.kilitli .anahtar{ background:var(--accent-2); opacity:.55; }
+  .fon-tipi-toggle.kilitli .anahtar::after{ left:15px; }
+  .fon-tipi-toggle .ct{ color:var(--text-faint); font-weight:500; }
   .pill{
     display:inline-flex; align-items:center; gap:7px;
     padding:6px 11px 6px 8px; border-radius:999px;
@@ -236,22 +282,14 @@
   .empty-state{ padding:60px 32px; text-align:center; color:var(--text-faint); }
   .empty-state b{ color:var(--text-dim); }
 
-  .pie-wrap{
-    display:flex; gap:40px; flex-wrap:wrap;
-    align-items:center;
-    margin:24px 32px 40px;
-  }
-  .pie-svg-holder{ flex:0 0 auto; }
-  .pie-legend{ display:flex; flex-direction:column; gap:10px; min-width:260px; flex:1; }
-  .legend-row{
-    display:flex; align-items:center; gap:10px;
-    padding:10px 14px;
-    background:var(--panel); border:1px solid var(--line); border-radius:8px;
-  }
-  .legend-row .sw{ width:12px; height:12px; border-radius:3px; flex:0 0 auto; }
-  .legend-row .ad{ flex:1; font-size:13px; color:var(--text-dim); }
-  .legend-row .pct{ font-size:14px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
-  .legend-row .tl{ font-size:11.5px; color:var(--text-faint); }
+  .bar-list{ margin:24px 32px 40px; display:flex; flex-direction:column; gap:14px; }
+  .bar-row{ display:grid; grid-template-columns:220px 1fr 90px; align-items:center; gap:14px; }
+  .bar-row .ad{ font-size:13px; color:var(--text-dim); display:flex; align-items:center; gap:8px; }
+  .bar-row .ad .sw{ width:9px; height:9px; border-radius:2px; flex:0 0 auto; }
+  .bar-track{ height:22px; border-radius:5px; background:var(--panel-2); overflow:hidden; border:1px solid var(--line); }
+  .bar-fill{ height:100%; border-radius:5px 0 0 5px; transition:width .4s ease; }
+  .bar-row .pct{ text-align:right; font-size:13px; font-weight:650; font-variant-numeric:tabular-nums; color:var(--text); }
+  .bar-row .tl{ text-align:right; font-size:11px; color:var(--text-faint); }
 
   ::-webkit-scrollbar{ width:11px; height:11px; }
   ::-webkit-scrollbar-track{ background:transparent; }
@@ -259,10 +297,10 @@
   ::-webkit-scrollbar-thumb:hover{ background:var(--text-faint); }
 
   @media (max-width:720px){
-    header, .kpis, .kategori-serit, .controls, .table-wrap, #tabs, .pie-wrap, #yenile-satir{ padding-left:16px; padding-right:16px; }
+    header, .kpis, .kategori-serit, .controls, .table-wrap, #tabs, .bar-list, #yenile-satir{ padding-left:16px; padding-right:16px; }
     .table-wrap{ margin-left:16px; margin-right:16px; }
     table{ min-width:900px; }
-    .pie-wrap{ flex-direction:column; align-items:flex-start; margin-left:16px; margin-right:16px; }
+    .bar-row{ grid-template-columns:120px 1fr 70px; }
   }
 </style>
 </head>
@@ -273,7 +311,13 @@
     <div class="dot"></div>
     <h1>TEFAS Panosu</h1>
     <div class="alt">Devam etmek için şifreni gir</div>
-    <input type="password" id="kilit-sifre" placeholder="Şifre" autocomplete="current-password">
+    <div id="kilit-sifre-wrap">
+      <input type="password" id="kilit-sifre" placeholder="Şifre" autocomplete="current-password">
+      <button type="button" id="kilit-goz-btn" aria-label="Şifreyi göster/gizle">
+        <svg id="kilit-goz-ikon-acik" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg id="kilit-goz-ikon-kapali" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      </button>
+    </div>
     <button id="kilit-buton">Giriş yap</button>
     <div id="kilit-durum"></div>
     <div id="kilit-hatirla-satir">
@@ -320,6 +364,8 @@
     <div class="kpi"><div class="label">En İyi 1A</div><div class="value pos" id="kpi-en-iyi">—</div></div>
     <div class="kpi"><div class="label">En Kötü 1A</div><div class="value neg" id="kpi-en-kotu">—</div></div>
   </div>
+
+  <div class="fon-tipi-serit" id="fon-tipi-serit-fonlar"></div>
 
   <div class="kategori-serit" id="kategori-serit-fonlar"></div>
 
@@ -410,10 +456,7 @@
 </div>
 
 <div class="tab-panel" id="panel-kategori">
-  <div class="pie-wrap" id="pie-wrap" style="display:none">
-    <div class="pie-svg-holder" id="pie-svg-holder"></div>
-    <div class="pie-legend" id="pie-legend"></div>
-  </div>
+  <div class="bar-list" id="bar-list" style="display:none"></div>
 
   <div class="empty-state" id="empty-dagilim">Veri yükleniyor...</div>
 </div>
@@ -456,41 +499,94 @@
   });
 
   let FONLAR_VERI = [];
-  const FONLAR_GIZLI = new Set();
+  // FONLAR_AKTIF: null ise "hepsi aktif" (baslangic durumu). Bir kere bir
+  // kategoriye tiklaninca gercek bir Set'e donusur ve o andan itibaren
+  // sadece icindeki kategoriler gorunur (ekle/cikar mantigi).
+  let FONLAR_AKTIF = null;
   let fonlarSiralamaAlani = "getiri_1A_%";
   let fonlarSiralamaYonu = -1;
 
   function fonlarVeriYukle(rows){
     const alanlar = ["getiri_1A_%","getiri_3A_%","getiri_6A_%","getiri_1Y_%","getiri_YBB_%","getiri_3Y_%","getiri_5Y_%","risk_degeri"];
     FONLAR_VERI = rows.filter(r => r.fund_code && String(r.fund_code).trim() !== "").map(r => {
-      const obj = { fund_code:r.fund_code, fund_name:r.fund_name, semsiye_turu:r.semsiye_turu||"Diğer" };
+      const obj = { fund_code:r.fund_code, fund_name:r.fund_name, semsiye_turu:r.semsiye_turu||"Diğer", fon_tipi:r.fon_tipi||"YAT" };
       alanlar.forEach(a => obj[a] = (r[a]===undefined||r[a]===null||r[a]==="") ? null : Number(r[a]));
       return obj;
     });
-    FONLAR_GIZLI.clear();
+    FONLAR_AKTIF = null;
     $("#kpis-fonlar").style.display = "grid";
     $("#controls-fonlar").style.display = "flex";
     $("#table-wrap-fonlar").style.display = "block";
     $("#empty-fonlar").style.display = "none";
+    fonTipiSeridi();
+    fonlarKategoriSeridi();
+    fonlarCiz();
+  }
+
+  // Fon tipi filtresi: YAT (yatirim fonlari) her zaman acik ve kilitli.
+  // EMK (emeklilik) ve BYF (borsa yatirim fonu) varsayilan olarak KAPALI -
+  // kullanici isterse acabilir, sayfa her acilista varsayilana doner.
+  const FON_TIPI_ETIKET = { YAT: "Yatırım Fonları", EMK: "Emeklilik Fonları", BYF: "Borsa Yatırım Fonları" };
+  const FON_TIPI_ACIK = { YAT: true, EMK: false, BYF: false };
+
+  function fonTipiSeridi(){
+    const sayac = {};
+    FONLAR_VERI.forEach(r => sayac[r.fon_tipi] = (sayac[r.fon_tipi]||0)+1);
+    const wrap = $("#fon-tipi-serit-fonlar");
+    wrap.innerHTML = `<span class="baslik">Fon Tipi</span>`;
+    ["YAT","EMK","BYF"].forEach(tip => {
+      if (!sayac[tip]) return; // veri icinde o tip hic yoksa gosterme
+      const kilitli = tip === "YAT";
+      const toggle = document.createElement("div");
+      toggle.className = "fon-tipi-toggle" + (kilitli ? " kilitli" : (FON_TIPI_ACIK[tip] ? " acik" : ""));
+      toggle.innerHTML = `<span class="anahtar"></span>${FON_TIPI_ETIKET[tip]} <span class="ct">${sayac[tip]}</span>`;
+      if (!kilitli){
+        toggle.addEventListener("click", () => {
+          FON_TIPI_ACIK[tip] = !FON_TIPI_ACIK[tip];
+          toggle.classList.toggle("acik", FON_TIPI_ACIK[tip]);
+          fonlarKategoriSeridi();
+          fonlarCiz();
+        });
+      }
+      wrap.appendChild(toggle);
+    });
+  }
+
+  function kategoriAktifMi(kat){
+    // FONLAR_AKTIF null ise (baslangic durumu) her kategori aktif sayilir.
+    return FONLAR_AKTIF === null || FONLAR_AKTIF.has(kat);
+  }
+
+  function kategoriyeTikla(kat, tumKategoriler){
+    if (FONLAR_AKTIF === null){
+      // Baslangic durumundan cikis: sadece tiklanan kategori aktif kalir,
+      // digerleri pasife duser.
+      FONLAR_AKTIF = new Set([kat]);
+    } else if (FONLAR_AKTIF.has(kat)){
+      // Zaten aktifti - sadece bunu pasife dusur, digerleri oldugu gibi kalir.
+      FONLAR_AKTIF.delete(kat);
+    } else {
+      // Pasifti - aktiflere EKLE (coklu secim birikir).
+      FONLAR_AKTIF.add(kat);
+    }
     fonlarKategoriSeridi();
     fonlarCiz();
   }
 
   function fonlarKategoriSeridi(){
+    // Kategori sayaclari SADECE su an acik olan fon tiplerine gore hesaplanir,
+    // boylece EMK/BYF kapaliyken parantez ici sayilar yaniltici olmaz.
+    const gorunurVeri = FONLAR_VERI.filter(r => FON_TIPI_ACIK[r.fon_tipi]);
     const sayac = {};
-    FONLAR_VERI.forEach(r => sayac[r.semsiye_turu] = (sayac[r.semsiye_turu]||0)+1);
+    gorunurVeri.forEach(r => sayac[r.semsiye_turu] = (sayac[r.semsiye_turu]||0)+1);
     const kats = Object.keys(sayac).sort((a,b)=>sayac[b]-sayac[a]);
     const wrap = $("#kategori-serit-fonlar");
     wrap.innerHTML = "";
     kats.forEach(kat => {
       const pill = document.createElement("div");
-      pill.className = "pill";
+      pill.className = "pill" + (kategoriAktifMi(kat) ? "" : " off");
       pill.innerHTML = `<span class="sw" style="background:${renkAl(kat)}"></span>${kat} <span class="ct">${sayac[kat]}</span>`;
-      pill.addEventListener("click", () => {
-        if (FONLAR_GIZLI.has(kat)) FONLAR_GIZLI.delete(kat); else FONLAR_GIZLI.add(kat);
-        pill.classList.toggle("off", FONLAR_GIZLI.has(kat));
-        fonlarCiz();
-      });
+      pill.addEventListener("click", () => kategoriyeTikla(kat, kats));
       wrap.appendChild(pill);
     });
   }
@@ -498,7 +594,8 @@
   function fonlarFiltreli(){
     const q = $("#arama-fonlar").value.trim().toLocaleLowerCase("tr");
     return FONLAR_VERI.filter(r => {
-      if (FONLAR_GIZLI.has(r.semsiye_turu)) return false;
+      if (!FON_TIPI_ACIK[r.fon_tipi]) return false;
+      if (!kategoriAktifMi(r.semsiye_turu)) return false;
       if (!q) return true;
       return (r.fund_code||"").toLocaleLowerCase("tr").includes(q) || (r.fund_name||"").toLocaleLowerCase("tr").includes(q);
     });
@@ -702,32 +799,6 @@
     });
   });
 
-  function polarNokta(cx, cy, r, aciDerece){
-    const aciRad = (aciDerece - 90) * Math.PI / 180;
-    return { x: cx + r * Math.cos(aciRad), y: cy + r * Math.sin(aciRad) };
-  }
-  function dilimYolu(cx, cy, r, baslangicDerece, bitisDerece){
-    const bas = polarNokta(cx, cy, r, bitisDerece);
-    const bit = polarNokta(cx, cy, r, baslangicDerece);
-    const buyukYay = (bitisDerece - baslangicDerece) > 180 ? 1 : 0;
-    return `M ${cx} ${cy} L ${bas.x.toFixed(2)} ${bas.y.toFixed(2)} A ${r} ${r} 0 ${buyukYay} 0 ${bit.x.toFixed(2)} ${bit.y.toFixed(2)} Z`;
-  }
-  function pastaCiz(veri){
-    const boyut = 280, r = 120, cx = boyut/2, cy = boyut/2;
-    let aci = 0;
-    const dilimler = veri.map((row, i) => {
-      const genislikDerece = (row.agirlik/100) * 360;
-      const yol = dilimYolu(cx, cy, r, aci, aci + genislikDerece);
-      aci += genislikDerece;
-      const renk = KATEGORI_RENK[row.semsiye_turu] || renkSirali(i);
-      return `<path d="${yol}" fill="${renk}" stroke="#F7F5F0" stroke-width="2"/>`;
-    }).join("");
-    return `<svg width="${boyut}" height="${boyut}" viewBox="0 0 ${boyut} ${boyut}">
-      ${dilimler}
-      <circle cx="${cx}" cy="${cy}" r="52" fill="#F7F5F0" stroke="#DBD5C7" stroke-width="1"/>
-    </svg>`;
-  }
-
   function dagilimVeriYukle(rows){
     const veri = rows.filter(r=>r.semsiye_turu).map(r => ({
       semsiye_turu: r.semsiye_turu,
@@ -736,17 +807,20 @@
     })).sort((a,b)=> b.agirlik - a.agirlik);
 
     $("#empty-dagilim").style.display = "none";
-    $("#pie-wrap").style.display = "flex";
-    $("#pie-svg-holder").innerHTML = pastaCiz(veri);
-    $("#pie-legend").innerHTML = veri.map((row,i) => `
-      <div class="legend-row">
-        <span class="sw" style="background:${KATEGORI_RENK[row.semsiye_turu] || renkSirali(i)}"></span>
-        <span class="ad">${row.semsiye_turu}</span>
-        <div style="text-align:right">
+    const wrap = $("#bar-list");
+    wrap.style.display = "flex";
+    wrap.innerHTML = veri.map((row,i) => {
+      const renk = KATEGORI_RENK[row.semsiye_turu] || renkSirali(i);
+      return `
+      <div class="bar-row">
+        <div class="ad"><span class="sw" style="background:${renk}"></span>${row.semsiye_turu}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${row.agirlik}%; background:${renk}"></div></div>
+        <div>
           <div class="pct">${row.agirlik.toFixed(1)}%</div>
           <div class="tl">${tlFmt(row.guncel_deger_tl)}</div>
         </div>
-      </div>`).join("");
+      </div>`;
+    }).join("");
   }
 
   const GITHUB_RAW_TEMEL = "https://raw.githubusercontent.com/HectorOfWilusa/prowiljectasu/main/sifreli";
@@ -842,6 +916,15 @@
   });
   $("#kilit-sifre").addEventListener("keydown", e => {
     if (e.key === "Enter") $("#kilit-buton").click();
+  });
+
+  $("#kilit-goz-btn").addEventListener("click", () => {
+    const input = $("#kilit-sifre");
+    const gizliMi = input.type === "password";
+    input.type = gizliMi ? "text" : "password";
+    $("#kilit-goz-ikon-acik").style.display = gizliMi ? "none" : "block";
+    $("#kilit-goz-ikon-kapali").style.display = gizliMi ? "block" : "none";
+    input.focus();
   });
 
   $("#cikis-btn").addEventListener("click", () => {
