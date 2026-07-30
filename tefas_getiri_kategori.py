@@ -20,6 +20,11 @@ Bu API sunlari VERIYOR (pytefas'ta OLMAYAN alanlar):
 Ayrica kurucu (fonKurucuGetir) ve fon turu (fonDetayGetir) referans
 listelerini de ceker - filtreleme/gruplama icin.
 
+Eger VERI_KLASORU altinda fon_kategori_referans.csv varsa (elle
+hazirlanmis, semsiye_turu'ndan daha ince bir siniflandirma - Altin
+Fonlari, Gumus Fonlari gibi), bu da AYRI bir "kategori" kolonu olarak
+getiri_kategori_*.csv'ye eklenir. Dosya yoksa bu adim sessizce atlanir.
+
 Kurulum:
   pip install requests pandas
 
@@ -162,6 +167,33 @@ def fon_turu_listesi_cek(fon_tipi: str = "YAT") -> pd.DataFrame:
     return df
 
 
+def fon_kategori_referans_yukle() -> pd.DataFrame | None:
+    """fon_kategori_referans.csv'yi yukler (elle hazirlanan, TEFAS'in resmi
+    semsiye_turu'ndan DAHA INCE siniflandirma - Altin Fonlari, Gumus Fonlari
+    gibi). Bu, semsiye_turu'nun YERINE DEGIL, ONUN YANINA eklenen AYRI bir
+    "kategori" kolonu olarak kullanilir.
+
+    Dosya formati (; ile ayrilmis, UTF-8):
+      fon_kodu;kategoriler
+      NAU;Altın Fonları, Emtia Fonları
+
+    Dosya yoksa (henuz hazirlanmadiysa) sessizce None doner - diger her
+    sey calismaya devam eder, "kategori" kolonu sadece eklenmez.
+    """
+    yol = VERI_KLASORU / "fon_kategori_referans.csv"
+    if not yol.exists():
+        log.warning("fon_kategori_referans.csv bulunamadi - 'kategori' kolonu eklenmeyecek.")
+        return None
+    df = pd.read_csv(yol, sep=";", encoding="utf-8-sig")
+    gerekli = {"fon_kodu", "kategoriler"}
+    eksik = gerekli - set(df.columns)
+    if eksik:
+        log.warning("fon_kategori_referans.csv icinde eksik kolonlar (%s) - atlaniyor.", eksik)
+        return None
+    df = df.rename(columns={"kategoriler": "kategori"})
+    return df[["fon_kodu", "kategori"]].drop_duplicates(subset="fon_kodu", keep="last")
+
+
 def main() -> int:
     fon_tipleri = sys.argv[1:] if len(sys.argv) > 1 else ["YAT", "EMK", "BYF"]
 
@@ -192,6 +224,15 @@ def main() -> int:
 
     if tum_getiriler:
         getiriler = pd.concat(tum_getiriler, ignore_index=True)
+
+        kategori_referans = fon_kategori_referans_yukle()
+        if kategori_referans is not None:
+            getiriler = getiriler.merge(
+                kategori_referans, left_on="fund_code", right_on="fon_kodu", how="left"
+            ).drop(columns=["fon_kodu"], errors="ignore")
+            log.info("Ince kategori bilgisi eklendi (%d/%d fon eslesti).",
+                      getiriler["kategori"].notna().sum(), len(getiriler))
+
         bugun = pd.Timestamp.now().strftime("%Y-%m-%d")
         cikti = VERI_KLASORU / f"getiri_kategori_{bugun}.csv"
         getiriler.to_csv(cikti, index=False, encoding="utf-8-sig", sep=";", decimal=",")
