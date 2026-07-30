@@ -32,7 +32,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - run: pip install pandas pyarrow cryptography requests
+      - run: pip install pandas pyarrow
 
       - name: Islemi isle (islemler.csv guncelle + FIFO hesapla)
         id: isle
@@ -41,22 +41,12 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: python tefas_issue_isle.py
 
-      - name: Portfoy degerlemesini guncelle
-        if: success()
-        run: python tefas_portfoy_degerle.py
-
-      - name: Dashboard icin sifrele
-        if: success()
-        env:
-          TEFAS_PANO_SIFRE: ${{ secrets.TEFAS_PANO_SIFRE }}
-        run: python tefas_sifrele.py
-
       - name: Degisiklikleri commit'le ve gonder
         if: success()
         run: |
           git config user.name "tefas-islem-bot"
           git config user.email "bot@users.noreply.github.com"
-          git add islemler.csv portfoyum_ozet.csv portfoyum_lot_bazli.csv sifreli/ 2>/dev/null || true
+          git add islemler.csv portfoyum_ozet.csv portfoyum_lot_bazli.csv
           git diff --staged --quiet || git commit -m "Islem eklendi: Issue #${{ github.event.issue.number }}"
           git push
 
