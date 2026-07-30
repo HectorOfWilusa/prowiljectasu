@@ -1,12 +1,24 @@
 name: TEFAS Gunluk Veri Cekme
 
-# TSI 10:10 = UTC 07:10 (Turkiye kisiyle: UTC+3)
+# TSI 10:10 = UTC 07:10, TSI 12:00 = UTC 09:00 (Turkiye UTC+3, yaz saati yok)
 # Hafta ici her gun (Pazartesi-Cuma), GitHub'in cron'u UTC kullanir.
+#
+# IKI FARKLI SAATTE CALISIR:
+#   1) TSI 10:10 - normal calisma zamani
+#   2) TSI 12:00 - bazi fonlarin fiyati TEFAS'ta gecikmeli aciklanabiliyor,
+#      bu ikinci calisma o gunku eksik kalan fonlari tamamlamak icin var.
+#      Script zaten "en son yayinlanan gunu" arayip GERIYE BAKARAK calisiyor
+#      (tefas_gunluk.py icindeki son_yayinlanan_gunu_bul fonksiyonu), yani
+#      bu ikinci calisma ayni gunun eksik kalan fonlarini otomatik tamamlar,
+#      mukerrer veri olusturmaz (drop_duplicates zaten fon+gun bazinda
+#      en son geleni tutuyor).
+#
 # GitHub Actions'in yogun saatlerde 5-20 dakika gecikme yapabildigini
 # unutma - script zaten veri gelene kadar tekrar deniyor.
 on:
   schedule:
     - cron: '10 7 * * 1-5'
+    - cron: '0 9 * * 1-5'
   workflow_dispatch:  # "Run workflow" butonuyla elle de tetiklenebilir
 
 jobs:
@@ -22,7 +34,7 @@ jobs:
           python-version: '3.12'
 
       - name: Gerekli kutuphaneleri kur
-        run: pip install pytefas pandas pyarrow requests cryptography tzdata
+        run: pip install pytefas pandas pyarrow requests cryptography
 
       - name: Git kimligini ayarla
         run: |
