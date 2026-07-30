@@ -1,0 +1,91 @@
+name: TEFAS Islem Isle
+
+# Bu workflow, dashboard'dan (index.html) acilan ozel formatli bir Issue
+# yakaladiginda calisir. Issue basligi "[TEFAS-ISLEM]" ile baslamalidir -
+# dashboard formu bunu otomatik olarak boyle acar. Baska amacli Issue'lar
+# (orn. elle acilan hata bildirimleri) bu workflow'u TETIKLEMEZ.
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  # Bu workflow'un KENDI GITHUB_TOKEN'i - otomatik uretilir, sadece bu
+  # calisma sirasinda gecerlidir. Dashboard'daki token'dan TAMAMEN AYRIDIR.
+  # contents:write -> islemler.csv, portfoyum_*.csv, sifreli/ dosyalarina
+  #                    commit atabilmek icin sart
+  # issues:write    -> Issue'ya yorum yazip kapatabilmek icin sart
+  contents: write
+  issues: write
+
+jobs:
+  islem-isle:
+    # Sadece basligi "[TEFAS-ISLEM]" ile baslayan Issue'larda calisir -
+    # baska turden Issue'lar (bug report, soru, vs.) bu is akisini tetiklemez.
+    if: startsWith(github.event.issue.title, '[TEFAS-ISLEM]')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install pandas pyarrow cryptography requests
+
+      - name: Islemi isle (islemler.csv guncelle + FIFO hesapla)
+        id: isle
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: python tefas_issue_isle.py
+
+      - name: Portfoy degerlemesini guncelle
+        if: success()
+        run: python tefas_portfoy_degerle.py
+
+      - name: Dashboard icin sifrele
+        if: success()
+        env:
+          TEFAS_PANO_SIFRE: ${{ secrets.TEFAS_PANO_SIFRE }}
+        run: python tefas_sifrele.py
+
+      - name: Degisiklikleri commit'le ve gonder
+        if: success()
+        run: |
+          git config user.name "tefas-islem-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add islemler.csv portfoyum_ozet.csv portfoyum_lot_bazli.csv sifreli/ 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "Islem eklendi: Issue #${{ github.event.issue.number }}"
+          git push
+
+      - name: Basarili - Issue'ya yorum ekle ve kapat
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '✅ İşlem başarıyla eklendi ve portföy güncellendi.'
+            });
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed'
+            });
+
+      - name: Basarisiz - Issue'ya hata yorumu ekle
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '❌ İşlem işlenirken bir hata oluştu. Lütfen girdiğiniz bilgileri kontrol edip tekrar deneyin, veya Actions sekmesindeki log kaydına bakın.\n\nBu Issue kapatılmadı, sorunu inceleyip tekrar bu formatta yeni bir işlem gönderebilirsiniz.'
+            });
