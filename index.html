@@ -307,6 +307,22 @@
   tbody tr:last-child td{ border-bottom:none; }
   tbody tr:hover{ background:rgba(0,0,0,0.02); }
 
+  /* ---- Fon Kodu + Fon Adi sutunlarini yatay kaydirmada sabitle ---- */
+  /* Genislikler sabit verilir, cunku sticky pozisyonlama degisken genislikte kaymaya sebep olur. */
+  th.sabit-sutun, td.sabit-sutun{
+    position:sticky; z-index:1;
+    background:var(--panel);
+  }
+  thead th.sabit-sutun{ z-index:3; background:var(--panel-2); }
+  tbody tr:hover td.sabit-sutun{ background:#EFEDE6; }
+  th.sabit-sutun.kod-sutun, td.sabit-sutun.kod-sutun{
+    left:0; width:76px; min-width:76px; max-width:76px;
+  }
+  th.sabit-sutun.ad-sutun, td.sabit-sutun.ad-sutun{
+    left:76px; width:220px; min-width:220px; max-width:220px;
+    box-shadow: 2px 0 4px -2px rgba(0,0,0,0.12);
+  }
+
   td.kod{ text-align:left; font-weight:650; color:var(--text); }
   td.ad{ text-align:left; color:var(--text-dim); max-width:340px; overflow:hidden; text-overflow:ellipsis; }
   td.kat{ text-align:left; }
@@ -512,8 +528,8 @@
     <table id="tablo-fonlar">
       <thead>
         <tr>
-          <th data-key="fund_code">Kod <span class="arrow">▼</span></th>
-          <th data-key="fund_name">Fon Adı <span class="arrow">▼</span></th>
+          <th class="sabit-sutun kod-sutun" data-key="fund_code">Kod <span class="arrow">▼</span></th>
+          <th class="sabit-sutun ad-sutun" data-key="fund_name">Fon Adı <span class="arrow">▼</span></th>
           <th data-key="semsiye_turu">Şemsiye Türü <span class="arrow">▼</span></th>
           <th data-key="kategori">Kategori <span class="arrow">▼</span></th>
           <th data-key="risk_degeri">Risk <span class="arrow">▼</span></th>
@@ -561,8 +577,8 @@
     <table id="tablo-portfoy">
       <thead>
         <tr>
-          <th data-key="fon_kodu">Kod <span class="arrow">▼</span></th>
-          <th data-key="fon_adi">Fon Adı <span class="arrow">▼</span></th>
+          <th class="sabit-sutun kod-sutun" data-key="fon_kodu">Kod <span class="arrow">▼</span></th>
+          <th class="sabit-sutun ad-sutun" data-key="fon_adi">Fon Adı <span class="arrow">▼</span></th>
           <th data-key="semsiye_turu">Şemsiye Türü <span class="arrow">▼</span></th>
           <th data-key="kategori">Kategori <span class="arrow">▼</span></th>
           <th data-key="toplam_pay">Pay</th>
@@ -1021,8 +1037,8 @@
     const data = fonlarSirali();
     $("#tbody-fonlar").innerHTML = data.map(r => `
       <tr>
-        <td class="kod">${r.fund_code}</td>
-        <td class="ad" title="${r.fund_name}">${r.fund_name}</td>
+        <td class="kod sabit-sutun kod-sutun">${r.fund_code}</td>
+        <td class="ad sabit-sutun ad-sutun" title="${r.fund_name}">${r.fund_name}</td>
         <td class="kat"><span class="kat-pill"><span class="sw" style="background:${renkAl(r.semsiye_turu)}"></span>${r.semsiye_turu}</span></td>
         ${kategoriHucre(r.kategori)}
         <td>${riskNoktalari(r.risk_degeri)}</td>
@@ -1150,8 +1166,8 @@
     const data = portfoySirali();
     $("#tbody-portfoy").innerHTML = data.map(r => `
       <tr>
-        <td class="kod">${r.fon_kodu}</td>
-        <td class="ad" title="${r.fon_adi}">${r.fon_adi}</td>
+        <td class="kod sabit-sutun kod-sutun">${r.fon_kodu}</td>
+        <td class="ad sabit-sutun ad-sutun" title="${r.fon_adi}">${r.fon_adi}</td>
         <td class="kat">${r.semsiye_turu ? `<span class="kat-pill"><span class="sw" style="background:${renkAl(r.semsiye_turu)}"></span>${r.semsiye_turu}</span>` : '<span class="g na">—</span>'}</td>
         ${kategoriHucre(r.kategori)}
         <td class="num">${r.toplam_pay!=null ? r.toplam_pay.toLocaleString("tr-TR",{maximumFractionDigits:2}) : "—"}</td>
