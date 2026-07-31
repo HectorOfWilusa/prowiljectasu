@@ -8,10 +8,7 @@ Bu script sunlari birlestirir:
 
 ...ve her fon icin GUNCEL DEGER + KAR/ZARAR + GUNLUK ORTALAMA KAZANC hesaplar.
 Ayrica varsa guncel_getiri_kategori.parquet dosyasindan semsiye turu/risk
-bilgisini de ekler (kategori bazinda dagilim analizi icin), VE ayrica
-varsa fon_kategori_referans.csv dosyasindan ELLE HAZIRLANMIS, DAHA INCE
-bir "kategori" siniflandirmasini da (Altin Fonlari, Gumus Fonlari gibi)
-AYRI bir kolon olarak ekler - semsiye_turu'nun YERINE DEGIL, YANINA.
+bilgisini de ekler (kategori bazinda dagilim analizi icin).
 
 GUNLUK ORTALAMA KAZANC YONTEMI (onemli - kaba "ilk alimdan bugune gun farki"
 YONTEMI DEGIL):
@@ -113,41 +110,21 @@ def kategori_bilgisini_yukle() -> pd.DataFrame | None:
         log.warning("guncel_getiri_kategori.parquet bulunamadi - kategori/risk bilgisi eklenmeyecek.")
         return None
     df = pd.read_parquet(yol)
-    kolonlar = ["fund_code", "semsiye_turu", "risk_degeri",
-                "getiri_1A_%", "getiri_YBB_%"]
+    kolonlar = ["fund_code", "semsiye_turu", "kategori", "risk_degeri",
+                "getiri_1A_%", "getiri_3A_%", "getiri_6A_%", "getiri_YBB_%", "getiri_1Y_%"]
     mevcut = [k for k in kolonlar if k in df.columns]
     return df[mevcut].drop_duplicates(subset="fund_code", keep="last")
 
 
-def fon_kategori_referans_yukle() -> pd.DataFrame | None:
-    """fon_kategori_referans.csv'yi yukler (elle hazirlanan, TEFAS'in resmi
-    semsiye_turu'ndan DAHA INCE siniflandirma - Altin Fonlari, Gumus Fonlari
-    gibi). Bu, semsiye_turu'nun YERINE DEGIL, ONUN YANINA eklenen AYRI bir
-    kolon olarak kullanilir: "kategori".
-
-    Dosya formati (; ile ayrilmis, UTF-8):
-      fon_kodu;kategoriler
-      NAU;Altın Fonları, Emtia Fonları
-
-    Bir fon birden fazla kategoriye ait olabilir - bu durumda kategoriler
-    kendi icinde virgul+bosluk ile ayrilmis tek bir metin olarak durur,
-    boylece dashboard tarafinda oldugu gibi gosterilebilir.
-
-    Dosya yoksa (henuz hazirlanmadiysa) sessizce None doner - diger her
-    sey calismaya devam eder, kategori kolonu sadece eklenmez.
-    """
-    yol = VERI_KLASORU / "fon_kategori_referans.csv"
+def kayan_pencere_getirilerini_yukle() -> pd.DataFrame | None:
+    """tefas_kayan_pencere.py'nin ciktisi (1G/1H/2H/3H/2A getirileri).
+    Dosya yoksa (henuz calistirilmadiysa) sessizce None doner."""
+    yol = VERI_KLASORU / "getiri_kayan_pencere.parquet"
     if not yol.exists():
-        log.warning("fon_kategori_referans.csv bulunamadi - 'kategori' kolonu eklenmeyecek.")
+        log.warning("getiri_kayan_pencere.parquet bulunamadi - kisa vadeli getiriler eklenmeyecek.")
         return None
-    df = pd.read_csv(yol, sep=";", encoding="utf-8-sig")
-    gerekli = {"fon_kodu", "kategoriler"}
-    eksik = gerekli - set(df.columns)
-    if eksik:
-        log.warning("fon_kategori_referans.csv icinde eksik kolonlar (%s) - atlaniyor.", eksik)
-        return None
-    df = df.rename(columns={"kategoriler": "kategori"})
-    return df[["fon_kodu", "kategori"]].drop_duplicates(subset="fon_kodu", keep="last")
+    df = pd.read_parquet(yol)
+    return df.drop_duplicates(subset="fund_code", keep="last")
 
 
 def gunluk_ortalama_kazanc_hesapla(guncel_fiyatlar: pd.DataFrame) -> pd.DataFrame | None:
@@ -245,11 +222,12 @@ def main() -> int:
             kategori, left_on="fon_kodu", right_on="fund_code", how="left"
         ).drop(columns=["fund_code"], errors="ignore")
 
-    kategori_referans = fon_kategori_referans_yukle()
-    if kategori_referans is not None:
-        birlesik = birlesik.merge(kategori_referans, on="fon_kodu", how="left")
-        log.info("Ince kategori bilgisi eklendi (%d fon eslesti).",
-                  birlesik["kategori"].notna().sum())
+    kayan_pencere = kayan_pencere_getirilerini_yukle()
+    if kayan_pencere is not None:
+        birlesik = birlesik.merge(
+            kayan_pencere, left_on="fon_kodu", right_on="fund_code", how="left"
+        ).drop(columns=["fund_code"], errors="ignore")
+        log.info("Kayan pencere getirileri eklendi.")
 
     toplam_maliyet = birlesik["toplam_maliyet_tl"].sum()
     toplam_deger = birlesik["guncel_deger_tl"].sum(skipna=True)
@@ -274,29 +252,6 @@ def main() -> int:
         kat_dagilim.to_csv(VERI_KLASORU / "portfoy_kategori_dagilimi.csv",
                            index=False, encoding="utf-8-sig", sep=";", decimal=",")
         log.info("Kategori dagilimi kaydedildi: portfoy_kategori_dagilimi.csv")
-
-    if "kategori" in birlesik.columns and birlesik["kategori"].notna().any():
-        # Bir fon birden fazla kategoriye ait olabilir (virgul+bosluk ile ayrilmis
-        # tek metin) - dagilim hesabinda her kategoriyi AYRI AYRI saymak icin
-        # once kategoriler kolonunu satirlara ayiriyoruz (bir fonun degeri
-        # birden fazla kategoriye TEKRAR TEKRAR eklenir - bu bilerek boyle,
-        # cunku bir fon gercekten birden fazla kategoriye ait olabiliyor).
-        ince_kat = birlesik.dropna(subset=["kategori"]).copy()
-        ince_kat["kategori"] = ince_kat["kategori"].str.split(",")
-        ince_kat = ince_kat.explode("kategori")
-        ince_kat["kategori"] = ince_kat["kategori"].str.strip()
-
-        ince_kat_dagilim = (
-            ince_kat.groupby("kategori", as_index=False)["guncel_deger_tl"]
-            .sum()
-            .sort_values("guncel_deger_tl", ascending=False)
-        )
-        # NOT: bir fon birden fazla kategoride sayildigi icin bu yuzdelerin
-        # toplami %100'u GECEBILIR - bu beklenen bir durum, hata degil.
-        ince_kat_dagilim["agirlik_%"] = round(ince_kat_dagilim["guncel_deger_tl"] / toplam_deger * 100, 2)
-        ince_kat_dagilim.to_csv(VERI_KLASORU / "portfoy_ince_kategori_dagilimi.csv",
-                                index=False, encoding="utf-8-sig", sep=";", decimal=",")
-        log.info("Ince kategori dagilimi kaydedildi: portfoy_ince_kategori_dagilimi.csv")
 
     log.info("-" * 60)
     log.info("TOPLAM MALIYET   : %.2f TL", toplam_maliyet)

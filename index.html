@@ -260,6 +260,10 @@
   .fon-tipi-toggle.acik .anahtar{ background:var(--accent-2); }
   .fon-tipi-toggle.acik .anahtar::after{ left:15px; }
   .fon-tipi-toggle .ct{ color:var(--text-faint); font-weight:500; }
+  .fon-tipi-toggle.sadece-portfoyum{
+    margin-left:6px; border-left:1px solid var(--line); padding-left:14px;
+  }
+  .fon-tipi-toggle.sadece-portfoyum.acik{ border-color:var(--accent-2); color:var(--text); }
   .pill{
     display:inline-flex; align-items:center; gap:7px;
     padding:6px 11px 6px 8px; border-radius:999px;
@@ -491,6 +495,7 @@
 <div id="tabs">
   <button class="tab-btn active" data-tab="tum-fonlar">Tüm Fonlar</button>
   <button class="tab-btn" data-tab="portfoyum">Portföyüm</button>
+  <button class="tab-btn" data-tab="portfoy-performans">Portföy Performans</button>
   <button class="tab-btn" data-tab="kategori">Kategori Dağılımı</button>
   <button class="tab-btn" data-tab="islemler">İşlemler</button>
   <button class="tab-btn" data-tab="islem-ekle">İşlem Ekle</button>
@@ -597,6 +602,53 @@
   </div>
 
   <div class="empty-state" id="empty-portfoy">Veri yükleniyor...</div>
+</div>
+
+<div class="tab-panel" id="panel-portfoy-performans">
+  <div class="controls" id="controls-performans" style="display:none">
+    <input type="search" id="arama-performans" placeholder="Fon kodu veya adı ara...">
+    <select id="siralama-alani-performans">
+      <option value="getiri_1G_%">1 Gün</option>
+      <option value="getiri_1H_%">1 Hafta</option>
+      <option value="getiri_2H_%">2 Hafta</option>
+      <option value="getiri_3H_%">3 Hafta</option>
+      <option value="getiri_1A_%">1 Ay</option>
+      <option value="getiri_2A_%">2 Ay</option>
+      <option value="getiri_3A_%">3 Ay</option>
+      <option value="getiri_6A_%">6 Ay</option>
+      <option value="getiri_YBB_%">Yılbaşından Beri</option>
+      <option value="getiri_1Y_%">1 Yıl</option>
+      <option value="guncel_deger_tl">Güncel Değer</option>
+      <option value="fon_kodu">Fon Kodu</option>
+    </select>
+    <span class="row-count" id="row-count-performans"></span>
+  </div>
+
+  <div class="table-wrap" id="table-wrap-performans" style="display:none">
+    <table id="tablo-performans">
+      <thead>
+        <tr>
+          <th class="sabit-sutun kod-sutun" data-key="fon_kodu">Kod <span class="arrow">▼</span></th>
+          <th class="sabit-sutun ad-sutun" data-key="fon_adi">Fon Adı <span class="arrow">▼</span></th>
+          <th data-key="guncel_deger_tl">Güncel Değer</th>
+          <th data-key="kar_zarar_%">K/Z (%)</th>
+          <th data-key="getiri_1G_%">1 Gün <span class="arrow">▼</span></th>
+          <th data-key="getiri_1H_%">1 Hafta <span class="arrow">▼</span></th>
+          <th data-key="getiri_2H_%">2 Hafta <span class="arrow">▼</span></th>
+          <th data-key="getiri_3H_%">3 Hafta <span class="arrow">▼</span></th>
+          <th data-key="getiri_1A_%">1 Ay <span class="arrow">▼</span></th>
+          <th data-key="getiri_2A_%">2 Ay <span class="arrow">▼</span></th>
+          <th data-key="getiri_3A_%">3 Ay <span class="arrow">▼</span></th>
+          <th data-key="getiri_6A_%">6 Ay <span class="arrow">▼</span></th>
+          <th data-key="getiri_YBB_%">YBB <span class="arrow">▼</span></th>
+          <th data-key="getiri_1Y_%">1 Yıl <span class="arrow">▼</span></th>
+        </tr>
+      </thead>
+      <tbody id="tbody-performans"></tbody>
+    </table>
+  </div>
+
+  <div class="empty-state" id="empty-performans">Veri yükleniyor...</div>
 </div>
 
 <div class="tab-panel" id="panel-kategori">
@@ -773,12 +825,7 @@
     $("#table-wrap-fonlar").style.display = "block";
     $("#empty-fonlar").style.display = "none";
     fonTipiSeridi();
-    fonlarFiltreKontrol = filtreSeridiKur(
-      "#filtre-serit-fonlar", FONLAR_FILTRE,
-      () => FONLAR_VERI.filter(r => FON_TIPI_ACIK[r.fon_tipi]),
-      r => r.semsiye_turu, r => r.kategori,
-      fonlarCiz
-    );
+    fonlarFiltreKontroluGuncelle();
     fonlarCiz();
   }
 
@@ -787,6 +834,28 @@
   // acilip kapanabilir - sayfa her yenilendiginde varsayilana doner.
   const FON_TIPI_ETIKET = { YAT: "Yatırım Fonları", EMK: "Emeklilik Fonları", BYF: "Borsa Yatırım Fonları" };
   const FON_TIPI_ACIK = { YAT: true, EMK: false, BYF: false };
+  // "Sadece Portfoyum" ayri bir anahtar - fon tipi filtrelerinden bagimsiz,
+  // acildiginda FONLAR_VERI sadece PORTFOY_VERI'de karsiligi olan fon
+  // kodlarina indirgenir. Varsayilan kapali.
+  let SADECE_PORTFOYUM_ACIK = false;
+
+  function fonlarTemelKume(){
+    let kume = FONLAR_VERI.filter(r => FON_TIPI_ACIK[r.fon_tipi]);
+    if (SADECE_PORTFOYUM_ACIK){
+      const portfoyKodlari = new Set(PORTFOY_VERI.map(r => r.fon_kodu));
+      kume = kume.filter(r => portfoyKodlari.has(r.fund_code));
+    }
+    return kume;
+  }
+
+  function fonlarFiltreKontroluGuncelle(){
+    fonlarFiltreKontrol = filtreSeridiKur(
+      "#filtre-serit-fonlar", FONLAR_FILTRE,
+      fonlarTemelKume,
+      r => r.semsiye_turu, r => r.kategori,
+      fonlarCiz
+    );
+  }
 
   function fonTipiSeridi(){
     const sayac = {};
@@ -801,16 +870,23 @@
       toggle.addEventListener("click", () => {
         FON_TIPI_ACIK[tip] = !FON_TIPI_ACIK[tip];
         toggle.classList.toggle("acik", FON_TIPI_ACIK[tip]);
-        fonlarFiltreKontrol = filtreSeridiKur(
-          "#filtre-serit-fonlar", FONLAR_FILTRE,
-          () => FONLAR_VERI.filter(r => FON_TIPI_ACIK[r.fon_tipi]),
-          r => r.semsiye_turu, r => r.kategori,
-          fonlarCiz
-        );
+        fonlarFiltreKontroluGuncelle();
         fonlarCiz();
       });
       wrap.appendChild(toggle);
     });
+
+    // Sadece Portfoyum anahtari - digerlerinden ayrik gorunsun diye bosluk birakiliyor.
+    const portfoyToggle = document.createElement("div");
+    portfoyToggle.className = "fon-tipi-toggle sadece-portfoyum" + (SADECE_PORTFOYUM_ACIK ? " acik" : "");
+    portfoyToggle.innerHTML = `<span class="anahtar"></span>Sadece Portföyüm`;
+    portfoyToggle.addEventListener("click", () => {
+      SADECE_PORTFOYUM_ACIK = !SADECE_PORTFOYUM_ACIK;
+      portfoyToggle.classList.toggle("acik", SADECE_PORTFOYUM_ACIK);
+      fonlarFiltreKontroluGuncelle();
+      fonlarCiz();
+    });
+    wrap.appendChild(portfoyToggle);
   }
 
   // ============================================================
@@ -1030,8 +1106,10 @@
 
   function fonlarFiltreli(){
     const q = $("#arama-fonlar").value.trim().toLocaleLowerCase("tr");
+    const portfoyKodlari = SADECE_PORTFOYUM_ACIK ? new Set(PORTFOY_VERI.map(r => r.fon_kodu)) : null;
     return FONLAR_VERI.filter(r => {
       if (!FON_TIPI_ACIK[r.fon_tipi]) return false;
+      if (portfoyKodlari && !portfoyKodlari.has(r.fund_code)) return false;
       if (!fonSemsiyeUyumluMu(FONLAR_FILTRE, r.semsiye_turu)) return false;
       if (!fonKategoriUyumluMu(FONLAR_FILTRE, r.kategori)) return false;
       if (!q) return true;
@@ -1142,7 +1220,12 @@
   let portfoySiralamaYonu = -1;
 
   function portfoyVeriYukle(rows){
-    const sayisalAlanlar = ["toplam_pay","agirlikli_ort_alis_fiyati","toplam_maliyet_tl","guncel_fiyat","guncel_deger_tl","kar_zarar_tl","kar_zarar_%","risk_degeri","gunluk_ortalama_kazanc_%"];
+    const sayisalAlanlar = [
+      "toplam_pay","agirlikli_ort_alis_fiyati","toplam_maliyet_tl","guncel_fiyat","guncel_deger_tl",
+      "kar_zarar_tl","kar_zarar_%","risk_degeri","gunluk_ortalama_kazanc_%",
+      "getiri_1G_%","getiri_1H_%","getiri_2H_%","getiri_3H_%",
+      "getiri_1A_%","getiri_2A_%","getiri_3A_%","getiri_6A_%","getiri_YBB_%","getiri_1Y_%"
+    ];
     PORTFOY_VERI = rows.filter(r => r.fon_kodu && String(r.fon_kodu).trim()!=="").map(r => {
       const obj = { fon_kodu:r.fon_kodu, fon_adi:r.fon_adi, semsiye_turu:r.semsiye_turu||"Diğer", kategori:r.kategori||null };
       sayisalAlanlar.forEach(a => obj[a]= (r[a]===undefined||r[a]===null||r[a]==="") ? null : Number(r[a]));
@@ -1161,6 +1244,7 @@
     );
     portfoyCiz();
     dagilimBaslat();
+    performansCiz();
   }
 
   function portfoyFiltreli(){
@@ -1248,6 +1332,83 @@
     }
     $("#kpi-p-sayi").textContent = data.length;
   }
+
+  // ============================================================
+  // PORTFOY PERFORMANS - PORTFOY_VERI'nin ayni kaynagindan, sadece
+  // zaman dilimi getirilerini (1G..1Y) odakli gosteren ayri bir tablo.
+  // ============================================================
+  let performansSiralamaAlani = "getiri_1G_%";
+  let performansSiralamaYonu = -1;
+
+  function performansFiltreli(){
+    const q = $("#arama-performans").value.trim().toLocaleLowerCase("tr");
+    if (!q) return PORTFOY_VERI;
+    return PORTFOY_VERI.filter(r =>
+      (r.fon_kodu||"").toLocaleLowerCase("tr").includes(q) ||
+      (r.fon_adi||"").toLocaleLowerCase("tr").includes(q)
+    );
+  }
+
+  function performansSirali(){
+    const data = performansFiltreli().slice();
+    const alan = performansSiralamaAlani;
+    data.sort((a,b) => {
+      let va=a[alan], vb=b[alan];
+      if (alan === "fon_kodu") return performansSiralamaYonu * String(va||"").localeCompare(String(vb||""), "tr");
+      const na=(va===null||va===undefined), nb=(vb===null||vb===undefined);
+      if (na&&nb) return 0; if (na) return 1; if (nb) return -1;
+      return performansSiralamaYonu * (va-vb);
+    });
+    return data;
+  }
+
+  function performansCiz(){
+    if (!PORTFOY_VERI.length){
+      $("#empty-performans").style.display = "block";
+      $("#controls-performans").style.display = "none";
+      $("#table-wrap-performans").style.display = "none";
+      return;
+    }
+    $("#empty-performans").style.display = "none";
+    $("#controls-performans").style.display = "flex";
+    $("#table-wrap-performans").style.display = "block";
+
+    const data = performansSirali();
+    $("#tbody-performans").innerHTML = data.map(r => `
+      <tr>
+        <td class="kod sabit-sutun kod-sutun">${r.fon_kodu}</td>
+        <td class="ad sabit-sutun ad-sutun" title="${r.fon_adi}">${r.fon_adi}</td>
+        ${hucreTL(r.guncel_deger_tl)}
+        ${hucreKZ(r["kar_zarar_%"],"yuzde2")}
+        ${hucreGetiri(r["getiri_1G_%"])}
+        ${hucreGetiri(r["getiri_1H_%"])}
+        ${hucreGetiri(r["getiri_2H_%"])}
+        ${hucreGetiri(r["getiri_3H_%"])}
+        ${hucreGetiri(r["getiri_1A_%"])}
+        ${hucreGetiri(r["getiri_2A_%"])}
+        ${hucreGetiri(r["getiri_3A_%"])}
+        ${hucreGetiri(r["getiri_6A_%"])}
+        ${hucreGetiri(r["getiri_YBB_%"])}
+        ${hucreGetiri(r["getiri_1Y_%"])}
+      </tr>`).join("");
+    $("#row-count-performans").textContent = `${data.length} / ${PORTFOY_VERI.length} fon gösteriliyor`;
+    document.querySelectorAll("#tablo-performans thead th").forEach(th => {
+      th.classList.toggle("sorted", th.dataset.key === performansSiralamaAlani);
+      const arrow = th.querySelector(".arrow");
+      if (arrow && th.dataset.key === performansSiralamaAlani) arrow.textContent = performansSiralamaYonu===-1?"▼":"▲";
+    });
+  }
+
+  $("#arama-performans").addEventListener("input", performansCiz);
+  $("#siralama-alani-performans").addEventListener("change", e => { performansSiralamaAlani=e.target.value; performansSiralamaYonu=-1; performansCiz(); });
+  document.querySelectorAll("#tablo-performans thead th").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.key;
+      if (performansSiralamaAlani===key) performansSiralamaYonu*=-1; else { performansSiralamaAlani=key; performansSiralamaYonu=-1; }
+      $("#siralama-alani-performans").value = key;
+      performansCiz();
+    });
+  });
 
   $("#arama-portfoy").addEventListener("input", portfoyCiz);
   $("#siralama-alani-portfoy").addEventListener("change", e => { portfoySiralamaAlani=e.target.value; portfoySiralamaYonu=-1; portfoyCiz(); });

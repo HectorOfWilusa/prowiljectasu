@@ -101,16 +101,11 @@ def en_guncel_dosyayi_bul(desen: str) -> Path | None:
     return adaylar[-1] if adaylar else None
 
 
-def csv_yukle_ve_sifrele(dosya_yolu: Path, sifre: str, cikti_adi: str) -> bool:
-    if dosya_yolu is None or not dosya_yolu.exists():
-        log.warning("Bulunamadi, atlaniyor: %s", cikti_adi)
-        return False
-
-    df = pd.read_csv(dosya_yolu, sep=";", decimal=",", encoding="utf-8-sig")
-
-    # JSON'a cevirirken virgullu-TR sayi formatindan kacinmak icin
-    # standart (nokta ondalikli) JSON kullaniyoruz - dashboard tarafinda
-    # ekstra parse karmasasi olmasin diye.
+def df_sifrele(df: pd.DataFrame, sifre: str, cikti_adi: str, kaynak_adi: str) -> bool:
+    """Bir DataFrame'i JSON'a cevirip sifreler, sifreli/ altina yazar.
+    csv_yukle_ve_sifrele ve parquet_yukle_ve_sifrele tarafindan ortak
+    kullanilan cekirdek adim - dosya format farki burada onemli degil,
+    DataFrame elde edildikten sonraki islem her zaman aynidir."""
     kayitlar = df.to_dict(orient="records")
 
     # ONEMLI: pandas'ta bos/eksik sayisal hucreler NaN olarak durur, ve
@@ -122,8 +117,19 @@ def csv_yukle_ve_sifrele(dosya_yolu: Path, sifre: str, cikti_adi: str) -> bool:
     #
     # Python'un json.dumps() fonksiyonu NaN'i sessizce yazar ama bu GECERSIZ
     # JSON'dur (standart disi) - tarayicinin JSON.parse()'i bunu reddeder.
+    def deger_temizle(v):
+        # NaN (float ama kendine esit degil) -> None
+        if isinstance(v, float) and v != v:
+            return None
+        # pandas/numpy Timestamp ve benzeri tarih tipleri JSON'a dogrudan
+        # yazilamaz - ISO string'e cevrilir (dashboard tarafinda gerekirse
+        # kolayca tekrar Date'e parse edilebilir).
+        if hasattr(v, "isoformat"):
+            return v.isoformat()
+        return v
+
     def nan_temizle(satir: dict) -> dict:
-        return {k: (None if isinstance(v, float) and v != v else v) for k, v in satir.items()}
+        return {k: deger_temizle(v) for k, v in satir.items()}
 
     kayitlar = [nan_temizle(satir) for satir in kayitlar]
 
@@ -136,8 +142,30 @@ def csv_yukle_ve_sifrele(dosya_yolu: Path, sifre: str, cikti_adi: str) -> bool:
     with open(hedef, "w", encoding="utf-8") as f:
         json.dump(paket, f)
 
-    log.info("Sifrelendi: %s -> %s (%d satir)", dosya_yolu.name, hedef.name, len(df))
+    log.info("Sifrelendi: %s -> %s (%d satir)", kaynak_adi, hedef.name, len(df))
     return True
+
+
+def csv_yukle_ve_sifrele(dosya_yolu: Path, sifre: str, cikti_adi: str) -> bool:
+    if dosya_yolu is None or not dosya_yolu.exists():
+        log.warning("Bulunamadi, atlaniyor: %s", cikti_adi)
+        return False
+
+    df = pd.read_csv(dosya_yolu, sep=";", decimal=",", encoding="utf-8-sig")
+
+    # JSON'a cevirirken virgullu-TR sayi formatindan kacinmak icin
+    # standart (nokta ondalikli) JSON kullaniyoruz - dashboard tarafinda
+    # ekstra parse karmasasi olmasin diye.
+    return df_sifrele(df, sifre, cikti_adi, dosya_yolu.name)
+
+
+def parquet_yukle_ve_sifrele(dosya_yolu: Path, sifre: str, cikti_adi: str) -> bool:
+    if dosya_yolu is None or not dosya_yolu.exists():
+        log.warning("Bulunamadi, atlaniyor: %s", cikti_adi)
+        return False
+
+    df = pd.read_parquet(dosya_yolu)
+    return df_sifrele(df, sifre, cikti_adi, dosya_yolu.name)
 
 
 def main() -> int:
@@ -165,6 +193,12 @@ def main() -> int:
     sonuclar["islemler"] = csv_yukle_ve_sifrele(
         islemler_dosya if islemler_dosya.exists() else None, sifre, "islemler.enc.json"
     )
+
+    # NOT: Kayan pencere getirileri (1G/1H/2H/3H/2A) ayrica sifrelenmiyor -
+    # tefas_getiri_kategori.py ve tefas_portfoy_degerle.py bu getirileri
+    # zaten getiri_kategori_*.csv ve guncel_portfoy_degerleme.csv icine
+    # birlestiriyor, yani fonlar.enc.json ve portfoy.enc.json ile birlikte
+    # otomatik olarak dashboard'a ulasiyorlar.
 
     meta = {
         "son_guncelleme": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

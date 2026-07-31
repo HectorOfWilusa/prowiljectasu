@@ -3,8 +3,8 @@ TEFAS Gunluk Calisma - Ana Script (Gorev Zamanlayici bunu cagirir)
 ====================================================================
 Her is gunu 10:10'da calisir. Sirasiyla:
   1) tefas_gunluk.py            -> fiyat + varlik dagilimi (pytefas)
-  2) tefas_getiri_kategori.py   -> semsiye turu + risk + hazir getiriler
-  3) tefas_kayan_pencere.py     -> 1G/1H/2H/3H/2A kayan pencere getirileri (YAT)
+  2) tefas_kayan_pencere.py     -> 1G/1H/2H/3H/2A kayan pencere getirileri (YAT)
+  3) tefas_getiri_kategori.py   -> semsiye turu + risk + hazir getiriler + kayan pencere birlestirme
   4) tefas_portfoy_degerle.py   -> portfoy degerleme (portfoyum_ozet.csv varsa)
   5) tefas_sifrele.py           -> dashboard icin CSV'leri sifreler (TEFAS_PANO_SIFRE gerekir)
   6) tefas_git_gonder.py        -> sifreli dosyalari GitHub'a gonderir
@@ -62,12 +62,14 @@ def main() -> int:
     log.info("="*60)
 
     sonuc_1 = calistir("tefas_gunluk.py")
-    sonuc_2 = calistir("tefas_getiri_kategori.py")
 
     # Kayan pencere getirileri (1G/1H/2H/3H/2A), master_info.parquet'in
-    # guncel olmasina bagimli - bu yuzden tefas_gunluk.py'den hemen sonra,
-    # portfoy degerlemeden once calisir.
+    # guncel olmasina bagimli VE tefas_getiri_kategori.py'nin bu ciktiyi
+    # okuyup getiri_kategori_*.csv'ye eklemesi gerektigi icin, gunluk fiyat
+    # cekiminden hemen sonra, getiri/kategori adimindan ONCE calisir.
     sonuc_kayan = calistir("tefas_kayan_pencere.py")
+
+    sonuc_2 = calistir("tefas_getiri_kategori.py")
 
     # Portfoy degerleme, ilk ikisinin verisine bagimli oldugu icin en son calisir.
     # portfoyum_ozet.csv yoksa (henuz olusturulmadiysa) bu adimi atla, digerlerini bozma.

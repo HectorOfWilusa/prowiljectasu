@@ -201,6 +201,23 @@ def fon_kategori_referans_yukle() -> pd.DataFrame | None:
     return df[["fon_kodu", "kategori"]].drop_duplicates(subset="fon_kodu", keep="last")
 
 
+def kayan_pencere_getirilerini_yukle() -> pd.DataFrame | None:
+    """tefas_kayan_pencere.py'nin ciktisi (1G/1H/2H/3H/2A getirileri, sadece
+    YAT fonlari icin). Bu da TEFAS'in resmi API'sinin VERMEDIGI kisa vadeli
+    araliklari tamamlayan, bizim kendi hesapladigimiz AYRI bir kaynak - ayni
+    "getiri_XX_%" isimlendirme kalibiyla, fund_code uzerinden eslenir.
+
+    Dosya yoksa (henuz tefas_kayan_pencere.py calistirilmadiysa) sessizce
+    None doner - diger her sey calismaya devam eder.
+    """
+    yol = VERI_KLASORU / "getiri_kayan_pencere.parquet"
+    if not yol.exists():
+        log.warning("getiri_kayan_pencere.parquet bulunamadi - kisa vadeli getiriler eklenmeyecek.")
+        return None
+    df = pd.read_parquet(yol)
+    return df.drop_duplicates(subset="fund_code", keep="last")
+
+
 def main() -> int:
     fon_tipleri = sys.argv[1:] if len(sys.argv) > 1 else ["YAT", "EMK", "BYF"]
 
@@ -239,6 +256,14 @@ def main() -> int:
             ).drop(columns=["fon_kodu"], errors="ignore")
             log.info("Ince kategori bilgisi eklendi (%d/%d fon eslesti).",
                       getiriler["kategori"].notna().sum(), len(getiriler))
+
+        kayan_pencere = kayan_pencere_getirilerini_yukle()
+        if kayan_pencere is not None:
+            getiriler = getiriler.merge(
+                kayan_pencere, on="fund_code", how="left"
+            )
+            log.info("Kisa vadeli (kayan pencere) getiriler eklendi (%d/%d fon eslesti).",
+                      getiriler["getiri_1G_%"].notna().sum(), len(getiriler))
 
         bugun = pd.Timestamp.now().strftime("%Y-%m-%d")
         cikti = VERI_KLASORU / f"getiri_kategori_{bugun}.csv"
