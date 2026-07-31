@@ -5,15 +5,16 @@ Her is gunu 10:10'da calisir. Sirasiyla:
   1) tefas_gunluk.py            -> fiyat + varlik dagilimi (pytefas)
   2) tefas_kayan_pencere.py     -> 1G/1H/2H/3H/2A kayan pencere getirileri (YAT)
   3) tefas_getiri_kategori.py   -> semsiye turu + risk + hazir getiriler + kayan pencere birlestirme
-  4) tefas_portfoy_degerle.py   -> portfoy degerleme (portfoyum_ozet.csv varsa)
-  5) tefas_sifrele.py           -> dashboard icin CSV'leri sifreler (TEFAS_PANO_SIFRE gerekir)
-  6) tefas_git_gonder.py        -> sifreli dosyalari GitHub'a gonderir
+  4) tefas_aktiflik_skoru.py    -> aktif yonetim skoru (1H/1A/2A/3A, dagilim degisimine dayali)
+  5) tefas_portfoy_degerle.py   -> portfoy degerleme (portfoyum_ozet.csv varsa)
+  6) tefas_sifrele.py           -> dashboard icin CSV'leri sifreler (TEFAS_PANO_SIFRE gerekir)
+  7) tefas_git_gonder.py        -> sifreli dosyalari GitHub'a gonderir
 
 Hepsi kendi log kayitlarini TEFAS_VERI/log.txt'e yazar.
 Bu script sadece sirasiyla cagirir ve genel bir ozet basar.
 
-5. ve 6. adimlar GitHub/sifreleme kurulumu henuz yapilmadiysa (ortam
-degiskeni veya git repo yoksa) sessizce atlanir - ilk dort adim her
+6. ve 7. adimlar GitHub/sifreleme kurulumu henuz yapilmadiysa (ortam
+degiskeni veya git repo yoksa) sessizce atlanir - ilk bes adim her
 zaman calisir, mevcut yerel kullanim bozulmaz.
 
 Kullanim:
@@ -71,6 +72,11 @@ def main() -> int:
 
     sonuc_2 = calistir("tefas_getiri_kategori.py")
 
+    # Aktif yonetim skoru, hem master_dagilim.parquet'in (tefas_gunluk.py)
+    # hem guncel_getiri_kategori.parquet'in (tefas_getiri_kategori.py)
+    # guncel olmasina bagimli - bu yuzden ikisinden sonra calisir.
+    sonuc_aktiflik = calistir("tefas_aktiflik_skoru.py")
+
     # Portfoy degerleme, ilk ikisinin verisine bagimli oldugu icin en son calisir.
     # portfoyum_ozet.csv yoksa (henuz olusturulmadiysa) bu adimi atla, digerlerini bozma.
     portfoy_dosyasi = BU_KLASOR / "portfoyum_ozet.csv"
@@ -101,7 +107,7 @@ def main() -> int:
 
     sure = (datetime.now() - baslangic).total_seconds()
     log.info("-"*60)
-    if sonuc_1 and sonuc_2 and sonuc_kayan and sonuc_3 and sonuc_4 and sonuc_5:
+    if sonuc_1 and sonuc_2 and sonuc_kayan and sonuc_aktiflik and sonuc_3 and sonuc_4 and sonuc_5:
         log.info("TUM ADIMLAR BASARILI. Sure: %.0f saniye", sure)
         donus = 0
     else:

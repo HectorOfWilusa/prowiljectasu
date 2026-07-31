@@ -200,6 +200,15 @@ def main() -> int:
     # birlestiriyor, yani fonlar.enc.json ve portfoy.enc.json ile birlikte
     # otomatik olarak dashboard'a ulasiyorlar.
 
+    # Aktif yonetim skoru (1H/1A/2A/3A + percentile'lar) - tefas_aktiflik_skoru.py'nin
+    # ciktisi, ayri bir dosya oldugu icin (fonlar/portfoy'a merge edilmedi,
+    # cunku sadece YAT fonlarini kapsiyor ve kendi basina bagimsiz bir
+    # gorunumu var) burada ayrica sifrelenir.
+    aktiflik_dosya = VERI_KLASORU / "aktiflik_skoru.parquet"
+    sonuclar["aktiflik"] = parquet_yukle_ve_sifrele(
+        aktiflik_dosya if aktiflik_dosya.exists() else None, sifre, "aktiflik.enc.json"
+    )
+
     meta = {
         "son_guncelleme": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "sifrelenen_dosyalar": {k: v for k, v in sonuclar.items()},

@@ -500,6 +500,7 @@
   <button class="tab-btn" data-tab="portfoyum">Portföyüm</button>
   <button class="tab-btn" data-tab="portfoy-performans">Portföy Performans</button>
   <button class="tab-btn" data-tab="kategori">Kategori Dağılımı</button>
+  <button class="tab-btn" data-tab="aktif-yonetim">Aktif Yönetim Sıralaması</button>
   <button class="tab-btn" data-tab="islemler">İşlemler</button>
   <button class="tab-btn" data-tab="islem-ekle">İşlem Ekle</button>
 </div>
@@ -679,6 +680,53 @@
   <div class="bar-list" id="bar-list-kategori" style="display:none"></div>
 
   <div class="empty-state" id="empty-dagilim">Veri yükleniyor...</div>
+</div>
+
+<div class="tab-panel" id="panel-aktif-yonetim">
+  <div class="kpis" id="kpis-aktiflik" style="display:none">
+    <div class="kpi"><div class="label">Analiz Edilen Fon</div><div class="value" id="kpi-a-toplam">—</div></div>
+    <div class="kpi"><div class="label">En Aktif</div><div class="value" id="kpi-a-en-aktif">—</div></div>
+    <div class="kpi"><div class="label">En Durgun</div><div class="value" id="kpi-a-en-durgun">—</div></div>
+  </div>
+
+  <div class="filtre-serit" id="filtre-serit-aktiflik"></div>
+
+  <div class="controls" id="controls-aktiflik" style="display:none">
+    <input type="search" id="arama-aktiflik" placeholder="Fon kodu veya adı ara...">
+    <select id="pencere-aktiflik">
+      <option value="1H">1 Hafta</option>
+      <option value="1A" selected>1 Ay</option>
+      <option value="2A">2 Ay</option>
+      <option value="3A">3 Ay</option>
+    </select>
+    <span class="row-count" id="row-count-aktiflik"></span>
+  </div>
+
+  <div class="islem-yardim" style="margin:0 32px 6px; max-width:640px;">
+    Skor, fonun varlık dağılımının (hisse/tahvil/döviz/altın vb.) gün gün ne kadar
+    değiştiğinin seçilen dönemdeki ortalamasıdır — yüksek skor daha sık/büyük pozisyon
+    değişikliği, düşük skor daha durağan bir dağılım anlamına gelir. Kesin bir "iyi/kötü"
+    ölçütü değildir, sadece yönetim tarzını (aktif ↔ pasif) gösterir.
+  </div>
+
+  <div class="table-wrap" id="table-wrap-aktiflik" style="display:none">
+    <table id="tablo-aktiflik">
+      <thead>
+        <tr>
+          <th class="sabit-sutun kod-sutun" data-key="fund_code">Kod <span class="arrow">▼</span></th>
+          <th class="sabit-sutun ad-sutun" data-key="fund_name">Fon Adı <span class="arrow">▼</span></th>
+          <th data-key="semsiye_turu">Şemsiye Türü <span class="arrow">▼</span></th>
+          <th data-key="kategori">Kategori <span class="arrow">▼</span></th>
+          <th data-key="skor">Aktiflik Skoru <span class="arrow">▼</span></th>
+          <th data-key="percentile_semsiye">Şemsiye İçi % <span class="arrow">▼</span></th>
+          <th data-key="percentile_kategori">Kategori İçi % <span class="arrow">▼</span></th>
+        </tr>
+      </thead>
+      <tbody id="tbody-aktiflik"></tbody>
+    </table>
+  </div>
+
+  <div class="empty-state" id="empty-aktiflik">Veri yükleniyor...</div>
 </div>
 
 <div class="tab-panel" id="panel-islemler">
@@ -1575,6 +1623,150 @@
     });
   });
 
+  // ============================================================
+  // AKTIF YONETIM SIRALAMASI - aktiflik_skoru.parquet (aktiflik.enc.json)
+  // ============================================================
+  // Fon adi/semsiye_turu/kategori bu dosyada TASINMIYOR (sadece fund_code +
+  // skorlar + zaten oradan gelen semsiye_turu/kategori var) - fund_name
+  // icin FONLAR_VERI ile fon koduna gore eslestirme yapilir.
+  let AKTIFLIK_VERI = [];
+  let AKTIFLIK_FILTRE = bosFiltreDurumu();
+  let aktiflikFiltreKontrol = null;
+  let aktiflikSiralamaAlani = "skor";
+  let aktiflikSiralamaYonu = -1;
+  let aktiflikPencere = "1A";
+
+  function aktiflikVeriYukle(rows){
+    AKTIFLIK_VERI = rows.filter(r => r.fund_code && String(r.fund_code).trim() !== "").map(r => ({
+      fund_code: r.fund_code,
+      semsiye_turu: r.semsiye_turu || "Diğer",
+      kategori: r.kategori || null,
+      aktiflik_1H: r["aktiflik_1H"] ?? null,
+      aktiflik_1A: r["aktiflik_1A"] ?? null,
+      aktiflik_2A: r["aktiflik_2A"] ?? null,
+      aktiflik_3A: r["aktiflik_3A"] ?? null,
+      pct_semsiye_1H: r["aktiflik_1H_percentile_semsiye"] ?? null,
+      pct_semsiye_1A: r["aktiflik_1A_percentile_semsiye"] ?? null,
+      pct_semsiye_2A: r["aktiflik_2A_percentile_semsiye"] ?? null,
+      pct_semsiye_3A: r["aktiflik_3A_percentile_semsiye"] ?? null,
+      pct_kategori_1H: r["aktiflik_1H_percentile_kategori"] ?? null,
+      pct_kategori_1A: r["aktiflik_1A_percentile_kategori"] ?? null,
+      pct_kategori_2A: r["aktiflik_2A_percentile_kategori"] ?? null,
+      pct_kategori_3A: r["aktiflik_3A_percentile_kategori"] ?? null,
+    }));
+    AKTIFLIK_FILTRE = bosFiltreDurumu();
+    $("#kpis-aktiflik").style.display = "grid";
+    $("#controls-aktiflik").style.display = "flex";
+    $("#table-wrap-aktiflik").style.display = "block";
+    $("#empty-aktiflik").style.display = "none";
+    aktiflikFiltreKontrol = filtreSeridiKur(
+      "#filtre-serit-aktiflik", AKTIFLIK_FILTRE,
+      () => AKTIFLIK_VERI,
+      r => r.semsiye_turu, r => r.kategori,
+      aktiflikCiz
+    );
+    aktiflikCiz();
+  }
+
+  // Aktif satirdan, secili pencereye (1H/1A/2A/3A) gore duz alanlar uretir -
+  // filtreleme/siralama/gosterim bu duzlestirilmis nesne uzerinden yapilir.
+  function aktiflikSatiriDuzlestir(r){
+    const fon = FONLAR_VERI.find(f => f.fund_code === r.fund_code);
+    return {
+      fund_code: r.fund_code,
+      fund_name: fon ? fon.fund_name : "",
+      semsiye_turu: r.semsiye_turu,
+      kategori: r.kategori,
+      skor: r[`aktiflik_${aktiflikPencere}`],
+      percentile_semsiye: r[`pct_semsiye_${aktiflikPencere}`],
+      percentile_kategori: r[`pct_kategori_${aktiflikPencere}`],
+    };
+  }
+
+  function aktiflikFiltreli(){
+    const q = $("#arama-aktiflik").value.trim().toLocaleLowerCase("tr");
+    return AKTIFLIK_VERI
+      .filter(r => {
+        if (!fonSemsiyeUyumluMu(AKTIFLIK_FILTRE, r.semsiye_turu)) return false;
+        if (!fonKategoriUyumluMu(AKTIFLIK_FILTRE, r.kategori)) return false;
+        return true;
+      })
+      .map(aktiflikSatiriDuzlestir)
+      .filter(r => {
+        if (!q) return true;
+        return (r.fund_code||"").toLocaleLowerCase("tr").includes(q) || (r.fund_name||"").toLocaleLowerCase("tr").includes(q);
+      });
+  }
+
+  function aktiflikSirali(){
+    const data = aktiflikFiltreli();
+    const alan = aktiflikSiralamaAlani;
+    data.sort((a,b) => {
+      let va=a[alan], vb=b[alan];
+      if (alan === "fund_code") return aktiflikSiralamaYonu * String(va||"").localeCompare(String(vb||""), "tr");
+      const na=(va===null||va===undefined), nb=(vb===null||vb===undefined);
+      if (na&&nb) return 0; if (na) return 1; if (nb) return -1;
+      return aktiflikSiralamaYonu * (va-vb);
+    });
+    return data;
+  }
+
+  function hucreSkor(v){
+    if (v === null || v === undefined) return `<td class="g na num">—</td>`;
+    return `<td class="num">${v.toFixed(2)}</td>`;
+  }
+
+  function hucrePercentile(v){
+    if (v === null || v === undefined) return `<td class="g na num">—</td>`;
+    const cls = v>=75?"neg":(v<=25?"pos":"");
+    return `<td class="g ${cls} num">${v.toFixed(1)}</td>`;
+  }
+
+  function aktiflikCiz(){
+    const data = aktiflikSirali();
+    $("#tbody-aktiflik").innerHTML = data.map(r => `
+      <tr>
+        <td class="kod sabit-sutun kod-sutun">${r.fund_code}</td>
+        <td class="ad sabit-sutun ad-sutun" title="${r.fund_name}">${r.fund_name || "—"}</td>
+        <td class="kat"><span class="kat-pill"><span class="sw" style="background:${renkAl(r.semsiye_turu)}"></span>${r.semsiye_turu}</span></td>
+        ${kategoriHucre(r.kategori)}
+        ${hucreSkor(r.skor)}
+        ${hucrePercentile(r.percentile_semsiye)}
+        ${hucrePercentile(r.percentile_kategori)}
+      </tr>`).join("");
+    $("#row-count-aktiflik").textContent = `${data.length} / ${AKTIFLIK_VERI.length} fon gösteriliyor`;
+    document.querySelectorAll("#tablo-aktiflik thead th").forEach(th => {
+      th.classList.toggle("sorted", th.dataset.key === aktiflikSiralamaAlani);
+      const arrow = th.querySelector(".arrow");
+      if (arrow && th.dataset.key === aktiflikSiralamaAlani) arrow.textContent = aktiflikSiralamaYonu===-1?"▼":"▲";
+    });
+    aktiflikKpiGuncelle(data);
+  }
+
+  function aktiflikKpiGuncelle(data){
+    $("#kpi-a-toplam").textContent = data.length;
+    const gecerli = data.filter(r => r.skor!==null && r.skor!==undefined);
+    if (gecerli.length){
+      const enAktif = gecerli.reduce((a,b)=> a.skor>b.skor?a:b);
+      const enDurgun = gecerli.reduce((a,b)=> a.skor<b.skor?a:b);
+      $("#kpi-a-en-aktif").textContent = `${enAktif.fund_code} (${enAktif.skor.toFixed(1)})`;
+      $("#kpi-a-en-durgun").textContent = `${enDurgun.fund_code} (${enDurgun.skor.toFixed(1)})`;
+    } else {
+      $("#kpi-a-en-aktif").textContent = "—";
+      $("#kpi-a-en-durgun").textContent = "—";
+    }
+  }
+
+  $("#arama-aktiflik").addEventListener("input", aktiflikCiz);
+  $("#pencere-aktiflik").addEventListener("change", e => { aktiflikPencere = e.target.value; aktiflikCiz(); });
+  document.querySelectorAll("#tablo-aktiflik thead th").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.key;
+      if (aktiflikSiralamaAlani===key) aktiflikSiralamaYonu*=-1; else { aktiflikSiralamaAlani=key; aktiflikSiralamaYonu=-1; }
+      aktiflikCiz();
+    });
+  });
+
   let DAGILIM_FILTRE = bosFiltreDurumu();
   let dagilimFiltreKontrol = null;
   let dagilimKuruldu = false;
@@ -1697,14 +1889,16 @@
       githubtanCekVeCoz("fonlar.enc.json", sifre),
       githubtanCekVeCoz("portfoy.enc.json", sifre),
       githubtanCekVeCoz("islemler.enc.json", sifre),
+      githubtanCekVeCoz("aktiflik.enc.json", sifre),
     ]);
 
-    const [fonlarR, portfoyR, islemlerR] = sonuclar;
+    const [fonlarR, portfoyR, islemlerR, aktiflikR] = sonuclar;
     let basarili = 0;
 
     if (fonlarR.status === "fulfilled"){ fonlarVeriYukle(fonlarR.value); basarili++; }
     if (portfoyR.status === "fulfilled"){ portfoyVeriYukle(portfoyR.value); basarili++; }
     if (islemlerR.status === "fulfilled"){ islemlerVeriYukle(islemlerR.value); basarili++; }
+    if (aktiflikR.status === "fulfilled"){ aktiflikVeriYukle(aktiflikR.value); basarili++; }
 
     try {
       const metaYanit = await fetch(`${GITHUB_RAW_TEMEL}/meta.json?t=${Date.now()}`);
@@ -1736,7 +1930,7 @@
 
     try {
       const basariliSayisi = await tumVeriyiYukle(sifre);
-      durum.className = "ok"; durum.textContent = `Giriş başarılı (${basariliSayisi}/3 veri seti).`;
+      durum.className = "ok"; durum.textContent = `Giriş başarılı (${basariliSayisi}/4 veri seti).`;
       if ($("#kilit-hatirla").checked){
         try { sessionStorage.setItem(SESSION_ANAHTAR, sifre); } catch(e){}
       }
