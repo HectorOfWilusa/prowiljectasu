@@ -180,6 +180,58 @@
 
   .kategori-serit{ display:flex; flex-wrap:wrap; gap:8px; padding:18px 32px 0; }
 
+  /* ---- Cok-secimli filtre kutucuklari (Semsiye Turu / Kategori) ---- */
+  .filtre-serit{
+    display:flex; flex-wrap:wrap; gap:10px;
+    padding:14px 32px 0;
+  }
+  .filtre-kutu{ position:relative; }
+  .filtre-kutu-btn{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:9px 14px; border-radius:9px;
+    font-size:13px; font-weight:650; color:var(--text-dim);
+    border:1px solid var(--line); background:var(--panel);
+    cursor:pointer; user-select:none;
+  }
+  .filtre-kutu-btn:hover{ border-color:var(--accent-2); }
+  .filtre-kutu.acik .filtre-kutu-btn{ border-color:var(--accent-2); color:var(--text); }
+  .filtre-kutu-btn .sayi-rozeti{
+    background:var(--accent-2); color:#fff; font-size:10.5px; font-weight:700;
+    padding:1px 6px; border-radius:999px; line-height:1.4;
+  }
+  .filtre-kutu-btn .ok{
+    font-size:9px; color:var(--text-faint); transition:transform .12s ease;
+  }
+  .filtre-kutu.acik .filtre-kutu-btn .ok{ transform:rotate(180deg); }
+
+  .filtre-panel{
+    display:none;
+    position:absolute; top:calc(100% + 6px); left:0; z-index:10;
+    min-width:280px; max-width:360px; max-height:340px; overflow-y:auto;
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.12);
+    padding:8px;
+  }
+  .filtre-panel.acik{ display:block; }
+  .filtre-panel-eylem{
+    display:flex; justify-content:space-between; gap:8px;
+    padding:4px 6px 8px; margin-bottom:4px; border-bottom:1px solid var(--line);
+  }
+  .filtre-panel-eylem button{
+    appearance:none; border:none; background:none; cursor:pointer;
+    font-size:11.5px; font-weight:600; color:var(--accent-2); padding:2px 4px;
+  }
+  .filtre-panel-eylem button:hover{ text-decoration:underline; }
+  .filtre-satir{
+    display:flex; align-items:center; gap:9px;
+    padding:7px 8px; border-radius:7px; cursor:pointer; user-select:none;
+  }
+  .filtre-satir:hover{ background:var(--panel-2); }
+  .filtre-satir input[type=checkbox]{ flex:0 0 auto; accent-color:var(--accent-2); width:15px; height:15px; }
+  .filtre-satir .sw{ width:9px; height:9px; border-radius:50%; flex:0 0 auto; }
+  .filtre-satir .ad{ flex:1; font-size:12.5px; color:var(--text); }
+  .filtre-satir .ct{ font-size:11px; color:var(--text-faint); }
+
   .fon-tipi-serit{
     display:flex; flex-wrap:wrap; gap:10px; align-items:center;
     padding:18px 32px 0;
@@ -270,9 +322,9 @@
   td.kat-coklu{ white-space:normal; max-width:260px; }
   .kat-pill-kucuk{
     display:inline-block;
-    font-size:10.5px; font-weight:600; color:var(--accent-2);
+    font-size:10.5px; font-weight:650; color:#fff;
     padding:2px 8px; border-radius:999px; margin:1px 3px 1px 0;
-    background:var(--accent-dim); border:1px solid var(--line); white-space:nowrap;
+    white-space:nowrap;
   }
 
   .risk-dot-row{ display:inline-flex; gap:2px; }
@@ -434,7 +486,7 @@
 
   <div class="fon-tipi-serit" id="fon-tipi-serit-fonlar"></div>
 
-  <div class="kategori-serit" id="kategori-serit-fonlar"></div>
+  <div class="filtre-serit" id="filtre-serit-fonlar"></div>
 
   <div class="controls" id="controls-fonlar" style="display:none">
     <input type="search" id="arama-fonlar" placeholder="Fon kodu veya adı ara...">
@@ -486,6 +538,8 @@
     <div class="kpi"><div class="label">Fon Sayısı</div><div class="value" id="kpi-p-sayi">—</div></div>
   </div>
 
+  <div class="filtre-serit" id="filtre-serit-portfoy"></div>
+
   <div class="controls" id="controls-portfoy" style="display:none">
     <input type="search" id="arama-portfoy" placeholder="Fon kodu veya adı ara...">
     <select id="siralama-alani-portfoy">
@@ -525,6 +579,8 @@
 </div>
 
 <div class="tab-panel" id="panel-kategori">
+  <div class="filtre-serit" id="filtre-serit-dagilim"></div>
+
   <div class="bar-list" id="bar-list" style="display:none"></div>
 
   <div class="empty-state" id="empty-dagilim">Veri yükleniyor...</div>
@@ -634,10 +690,10 @@
   });
 
   let FONLAR_VERI = [];
-  // FONLAR_AKTIF: null ise "hepsi aktif" (baslangic durumu). Bir kere bir
-  // kategoriye tiklaninca gercek bir Set'e donusur ve o andan itibaren
-  // sadece icindeki kategoriler gorunur (ekle/cikar mantigi).
-  let FONLAR_AKTIF = null;
+  // FONLAR_FILTRE: {semsiyeSecili, katSecili} - her ikisi de bos Set ise
+  // "hepsi acik" (baslangic durumu). filtreSeridiKur() tarafindan yonetilir.
+  let FONLAR_FILTRE = bosFiltreDurumu();
+  let fonlarFiltreKontrol = null;
   let fonlarSiralamaAlani = "getiri_1A_%";
   let fonlarSiralamaYonu = -1;
 
@@ -648,13 +704,18 @@
       alanlar.forEach(a => obj[a] = (r[a]===undefined||r[a]===null||r[a]==="") ? null : Number(r[a]));
       return obj;
     });
-    FONLAR_AKTIF = null;
+    FONLAR_FILTRE = bosFiltreDurumu();
     $("#kpis-fonlar").style.display = "grid";
     $("#controls-fonlar").style.display = "flex";
     $("#table-wrap-fonlar").style.display = "block";
     $("#empty-fonlar").style.display = "none";
     fonTipiSeridi();
-    fonlarKategoriSeridi();
+    fonlarFiltreKontrol = filtreSeridiKur(
+      "#filtre-serit-fonlar", FONLAR_FILTRE,
+      () => FONLAR_VERI.filter(r => FON_TIPI_ACIK[r.fon_tipi]),
+      r => r.semsiye_turu, r => r.kategori,
+      fonlarCiz
+    );
     fonlarCiz();
   }
 
@@ -677,57 +738,230 @@
       toggle.addEventListener("click", () => {
         FON_TIPI_ACIK[tip] = !FON_TIPI_ACIK[tip];
         toggle.classList.toggle("acik", FON_TIPI_ACIK[tip]);
-        fonlarKategoriSeridi();
+        fonlarFiltreKontrol = filtreSeridiKur(
+          "#filtre-serit-fonlar", FONLAR_FILTRE,
+          () => FONLAR_VERI.filter(r => FON_TIPI_ACIK[r.fon_tipi]),
+          r => r.semsiye_turu, r => r.kategori,
+          fonlarCiz
+        );
         fonlarCiz();
       });
       wrap.appendChild(toggle);
     });
   }
 
-  function kategoriAktifMi(kat){
-    // FONLAR_AKTIF null ise (baslangic durumu) her kategori aktif sayilir.
-    return FONLAR_AKTIF === null || FONLAR_AKTIF.has(kat);
+  // ============================================================
+  // ORTAK FILTRE MODULU - Semsiye Turu + Kategori
+  // ============================================================
+  // Her sekme (Tum Fonlar, Portfoyum, Kategori Dagilimi) kendi FiltreDurumu
+  // objesini tutar (semsiyeSecili, kategoriSecili - null = "hepsi acik").
+  // Semsiye Turu ve Kategori filtreleri AND ile birlesir; her filtrenin
+  // kendi icinde secilen degerler OR ile birlesir. "kategori" alani bir
+  // fon icin virgullu birden fazla deger tasiyabilir - bunlardan HERHANGI
+  // BIRI secili kategoriyle eslesirse fon gosterilir.
+
+  function bosFiltreDurumu(){
+    return { semsiyeSecili: null, katSecili: null };
   }
 
-  function kategoriyeTikla(kat, tumKategoriler){
-    if (FONLAR_AKTIF === null){
-      // Baslangic durumundan cikis: sadece tiklanan kategori aktif kalir,
-      // digerleri pasife duser.
-      FONLAR_AKTIF = new Set([kat]);
-    } else if (FONLAR_AKTIF.has(kat)){
-      // Zaten aktifti - sadece bunu pasife dusur, digerleri oldugu gibi kalir.
-      FONLAR_AKTIF.delete(kat);
-    } else {
-      // Pasifti - aktiflere EKLE (coklu secim birikir).
-      FONLAR_AKTIF.add(kat);
+  function fonSemsiyeUyumluMu(durum, semsiyeTuru){
+    return durum.semsiyeSecili === null || durum.semsiyeSecili.size === 0 || durum.semsiyeSecili.has(semsiyeTuru);
+  }
+
+  function fonKategorileriDizi(kategoriMetin){
+    if (!kategoriMetin) return [];
+    return String(kategoriMetin).split(",").map(k => k.trim()).filter(Boolean);
+  }
+
+  function fonKategoriUyumluMu(durum, kategoriMetin){
+    if (durum.katSecili === null || durum.katSecili.size === 0) return true;
+    const parcalar = fonKategorileriDizi(kategoriMetin);
+    if (parcalar.length === 0) return durum.katSecili.has("(Kategorisiz)");
+    return parcalar.some(k => durum.katSecili.has(k));
+  }
+
+  // Renk paleti: Semsiye Turu icin KATEGORI_RENK (yukarida tanimli, sabit
+  // esleme). Kategori (ince siniflandirma) icin HER DEGERE tutarli, kalici
+  // bir renk atamak amaciyla basit bir hash fonksiyonu kullanilir - boylece
+  // ayni kategori her yerde (tablo hucresi, filtre paneli) hep ayni rengi alir.
+  const KATEGORI_INCE_RENK_ONBELLEK = {};
+  function kategoriInceRenk(adi){
+    if (KATEGORI_INCE_RENK_ONBELLEK[adi]) return KATEGORI_INCE_RENK_ONBELLEK[adi];
+    let h = 0;
+    for (let i=0;i<adi.length;i++){ h = (h*31 + adi.charCodeAt(i)) >>> 0; }
+    const renk = PASTEL_SIRALI[h % PASTEL_SIRALI.length];
+    KATEGORI_INCE_RENK_ONBELLEK[adi] = renk;
+    return renk;
+  }
+
+  /**
+   * Bir filtre serit alanini (Semsiye Turu + Kategori kutucuklari) kurar.
+   * @param wrapId - filtre kutucuklarinin cizilecegi kapsayici div id'si
+   * @param durum - {semsiyeSecili, katSecili} objesi (referansla degistirilir)
+   * @param veriSaglayici - () => filtrelenecek satirlarin TAMAMI (fon tipi
+   *        gibi ust seviye filtreler zaten uygulanmis halde, henuz semsiye/
+   *        kategori filtresi uygulanmamis) - sayaclar bu veriden hesaplanir
+   * @param semsiyeAlaniAl - (satir) => semsiye_turu degeri
+   * @param kategoriAlaniAl - (satir) => kategori metni (virgullu olabilir)
+   * @param cizFn - degisiklikten sonra cagirilacak, ana tabloyu/grafigi yeniden cizen fonksiyon
+   */
+  function filtreSeridiKur(wrapId, durum, veriSaglayici, semsiyeAlaniAl, kategoriAlaniAl, cizFn){
+    const wrap = $(wrapId);
+    if (!wrap) return;
+
+    function sayaclariHesapla(alanAl, disKategoriMi){
+      const veri = veriSaglayici();
+      const sayac = {};
+      veri.forEach(r => {
+        if (disKategoriMi){
+          const parcalar = fonKategorileriDizi(alanAl(r));
+          if (parcalar.length === 0){ sayac["(Kategorisiz)"] = (sayac["(Kategorisiz)"]||0)+1; return; }
+          parcalar.forEach(k => sayac[k] = (sayac[k]||0)+1);
+        } else {
+          const v = alanAl(r) || "Diğer";
+          sayac[v] = (sayac[v]||0)+1;
+        }
+      });
+      return sayac;
     }
-    fonlarKategoriSeridi();
-    fonlarCiz();
+
+    function panelDoldur(panelEl, sayac, seciliSet, renkFn, panelKapatVeCiz){
+      const kats = Object.keys(sayac).sort((a,b)=> sayac[b]-sayac[a]);
+      panelEl.innerHTML = "";
+
+      const eylemSatir = document.createElement("div");
+      eylemSatir.className = "filtre-panel-eylem";
+      const tumunuSecBtn = document.createElement("button");
+      tumunuSecBtn.textContent = "Tümünü seç";
+      tumunuSecBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        kats.forEach(k => seciliSet.add(k));
+        panelKapatVeCiz(false);
+      });
+      const temizleBtn = document.createElement("button");
+      temizleBtn.textContent = "Temizle";
+      temizleBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        seciliSet.clear();
+        panelKapatVeCiz(false);
+      });
+      eylemSatir.appendChild(tumunuSecBtn);
+      eylemSatir.appendChild(temizleBtn);
+      panelEl.appendChild(eylemSatir);
+
+      kats.forEach(kat => {
+        const satir = document.createElement("label");
+        satir.className = "filtre-satir";
+        const isaretli = seciliSet === null || seciliSet.size === 0 || seciliSet.has(kat);
+        satir.innerHTML = `
+          <input type="checkbox" ${isaretli ? "checked" : ""}>
+          ${renkFn ? `<span class="sw" style="background:${renkFn(kat)}"></span>` : ""}
+          <span class="ad">${kat}</span>
+          <span class="ct">${sayac[kat]}</span>
+        `;
+        const kutu = satir.querySelector("input");
+        kutu.addEventListener("change", () => {
+          // Ilk tiklamada "hepsi acik" (bos set) durumundan cikilir:
+          // once TUM degerler set'e eklenir, sonra tiklanan kaldirilir.
+          if (seciliSet.size === 0){
+            kats.forEach(k => seciliSet.add(k));
+          }
+          if (kutu.checked) seciliSet.add(kat); else seciliSet.delete(kat);
+          cizFn();
+          guncelleKutuEtiketleri();
+        });
+        panelEl.appendChild(satir);
+      });
+    }
+
+    // --- Semsiye Turu kutucugu ---
+    const semsiyeKutu = document.createElement("div");
+    semsiyeKutu.className = "filtre-kutu";
+    semsiyeKutu.innerHTML = `
+      <button type="button" class="filtre-kutu-btn">
+        Şemsiye Türü <span class="sayi-rozeti" style="display:none"></span> <span class="ok">▾</span>
+      </button>
+      <div class="filtre-panel"></div>
+    `;
+    // --- Kategori kutucugu ---
+    const katKutu = document.createElement("div");
+    katKutu.className = "filtre-kutu";
+    katKutu.innerHTML = `
+      <button type="button" class="filtre-kutu-btn">
+        Kategori <span class="sayi-rozeti" style="display:none"></span> <span class="ok">▾</span>
+      </button>
+      <div class="filtre-panel"></div>
+    `;
+
+    wrap.innerHTML = "";
+    wrap.appendChild(semsiyeKutu);
+    wrap.appendChild(katKutu);
+
+    if (durum.semsiyeSecili === null) durum.semsiyeSecili = new Set();
+    if (durum.katSecili === null) durum.katSecili = new Set();
+
+    function guncelleKutuEtiketleri(){
+      const semRozet = semsiyeKutu.querySelector(".sayi-rozeti");
+      if (durum.semsiyeSecili.size > 0){
+        semRozet.style.display = "inline-block";
+        semRozet.textContent = durum.semsiyeSecili.size;
+      } else semRozet.style.display = "none";
+
+      const katRozet = katKutu.querySelector(".sayi-rozeti");
+      if (durum.katSecili.size > 0){
+        katRozet.style.display = "inline-block";
+        katRozet.textContent = durum.katSecili.size;
+      } else katRozet.style.display = "none";
+    }
+
+    function panelleriKapat(){
+      semsiyeKutu.classList.remove("acik");
+      katKutu.classList.remove("acik");
+      semsiyeKutu.querySelector(".filtre-panel").classList.remove("acik");
+      katKutu.querySelector(".filtre-panel").classList.remove("acik");
+    }
+
+    semsiyeKutu.querySelector(".filtre-kutu-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const acildiMi = !semsiyeKutu.classList.contains("acik");
+      panelleriKapat();
+      if (acildiMi){
+        const sayac = sayaclariHesapla(semsiyeAlaniAl, false);
+        panelDoldur(semsiyeKutu.querySelector(".filtre-panel"), sayac, durum.semsiyeSecili, renkAl, () => { cizFn(); guncelleKutuEtiketleri(); panelleriKapat(); });
+        semsiyeKutu.classList.add("acik");
+        semsiyeKutu.querySelector(".filtre-panel").classList.add("acik");
+      }
+    });
+
+    katKutu.querySelector(".filtre-kutu-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const acildiMi = !katKutu.classList.contains("acik");
+      panelleriKapat();
+      if (acildiMi){
+        const sayac = sayaclariHesapla(kategoriAlaniAl, true);
+        panelDoldur(katKutu.querySelector(".filtre-panel"), sayac, durum.katSecili, kategoriInceRenk, () => { cizFn(); guncelleKutuEtiketleri(); panelleriKapat(); });
+        katKutu.classList.add("acik");
+        katKutu.querySelector(".filtre-panel").classList.add("acik");
+      }
+    });
+
+    guncelleKutuEtiketleri();
+
+    return { guncelleKutuEtiketleri, panelleriKapat };
   }
 
-  function fonlarKategoriSeridi(){
-    // Kategori sayaclari SADECE su an acik olan fon tiplerine gore hesaplanir,
-    // boylece EMK/BYF kapaliyken parantez ici sayilar yaniltici olmaz.
-    const gorunurVeri = FONLAR_VERI.filter(r => FON_TIPI_ACIK[r.fon_tipi]);
-    const sayac = {};
-    gorunurVeri.forEach(r => sayac[r.semsiye_turu] = (sayac[r.semsiye_turu]||0)+1);
-    const kats = Object.keys(sayac).sort((a,b)=>sayac[b]-sayac[a]);
-    const wrap = $("#kategori-serit-fonlar");
-    wrap.innerHTML = "";
-    kats.forEach(kat => {
-      const pill = document.createElement("div");
-      pill.className = "pill" + (kategoriAktifMi(kat) ? "" : " off");
-      pill.innerHTML = `<span class="sw" style="background:${renkAl(kat)}"></span>${kat} <span class="ct">${sayac[kat]}</span>`;
-      pill.addEventListener("click", () => kategoriyeTikla(kat, kats));
-      wrap.appendChild(pill);
-    });
-  }
+  // Herhangi bir yere tiklandiginda acik filtre panellerini kapat
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".filtre-kutu.acik").forEach(k => k.classList.remove("acik"));
+    document.querySelectorAll(".filtre-panel.acik").forEach(p => p.classList.remove("acik"));
+  });
 
   function fonlarFiltreli(){
     const q = $("#arama-fonlar").value.trim().toLocaleLowerCase("tr");
     return FONLAR_VERI.filter(r => {
       if (!FON_TIPI_ACIK[r.fon_tipi]) return false;
-      if (!kategoriAktifMi(r.semsiye_turu)) return false;
+      if (!fonSemsiyeUyumluMu(FONLAR_FILTRE, r.semsiye_turu)) return false;
+      if (!fonKategoriUyumluMu(FONLAR_FILTRE, r.kategori)) return false;
       if (!q) return true;
       return (r.fund_code||"").toLocaleLowerCase("tr").includes(q) || (r.fund_name||"").toLocaleLowerCase("tr").includes(q);
     });
@@ -760,9 +994,9 @@
   }
 
   function kategoriHucre(kategoriMetin){
-    if (!kategoriMetin) return `<td class="kat"><span class="g na">—</span></td>`;
-    const parcalar = kategoriMetin.split(",").map(k => k.trim()).filter(Boolean);
-    const pillHtml = parcalar.map(k => `<span class="kat-pill-kucuk">${k}</span>`).join(" ");
+    const parcalar = fonKategorileriDizi(kategoriMetin);
+    if (parcalar.length === 0) return `<td class="kat"><span class="g na">—</span></td>`;
+    const pillHtml = parcalar.map(k => `<span class="kat-pill-kucuk" style="background:${kategoriInceRenk(k)}">${k}</span>`).join(" ");
     return `<td class="kat kat-coklu">${pillHtml}</td>`;
   }
 
@@ -830,6 +1064,8 @@
   });
 
   let PORTFOY_VERI = [];
+  let PORTFOY_FILTRE = bosFiltreDurumu();
+  let portfoyFiltreKontrol = null;
   let portfoySiralamaAlani = "guncel_deger_tl";
   let portfoySiralamaYonu = -1;
 
@@ -840,17 +1076,29 @@
       sayisalAlanlar.forEach(a => obj[a]= (r[a]===undefined||r[a]===null||r[a]==="") ? null : Number(r[a]));
       return obj;
     });
+    PORTFOY_FILTRE = bosFiltreDurumu();
     $("#kpis-portfoy").style.display = "grid";
     $("#controls-portfoy").style.display = "flex";
     $("#table-wrap-portfoy").style.display = "block";
     $("#empty-portfoy").style.display = "none";
+    portfoyFiltreKontrol = filtreSeridiKur(
+      "#filtre-serit-portfoy", PORTFOY_FILTRE,
+      () => PORTFOY_VERI,
+      r => r.semsiye_turu, r => r.kategori,
+      portfoyCiz
+    );
     portfoyCiz();
+    dagilimBaslat();
   }
 
   function portfoyFiltreli(){
     const q = $("#arama-portfoy").value.trim().toLocaleLowerCase("tr");
-    if (!q) return PORTFOY_VERI;
-    return PORTFOY_VERI.filter(r => (r.fon_kodu||"").toLocaleLowerCase("tr").includes(q) || (r.fon_adi||"").toLocaleLowerCase("tr").includes(q));
+    return PORTFOY_VERI.filter(r => {
+      if (!fonSemsiyeUyumluMu(PORTFOY_FILTRE, r.semsiye_turu)) return false;
+      if (!fonKategoriUyumluMu(PORTFOY_FILTRE, r.kategori)) return false;
+      if (!q) return true;
+      return (r.fon_kodu||"").toLocaleLowerCase("tr").includes(q) || (r.fon_adi||"").toLocaleLowerCase("tr").includes(q);
+    });
   }
 
   function portfoySirali(){
@@ -940,16 +1188,38 @@
     });
   });
 
-  function dagilimVeriYukle(rows){
-    const veri = rows.filter(r=>r.semsiye_turu).map(r => ({
-      semsiye_turu: r.semsiye_turu,
-      guncel_deger_tl: Number(r.guncel_deger_tl),
-      agirlik: Number(r["agirlik_%"]),
+  let DAGILIM_FILTRE = bosFiltreDurumu();
+  let dagilimFiltreKontrol = null;
+  let dagilimKuruldu = false;
+
+  function dagilimFiltreli(){
+    return PORTFOY_VERI.filter(r => {
+      if (!fonSemsiyeUyumluMu(DAGILIM_FILTRE, r.semsiye_turu)) return false;
+      if (!fonKategoriUyumluMu(DAGILIM_FILTRE, r.kategori)) return false;
+      return true;
+    });
+  }
+
+  function dagilimCiz(){
+    const filtreli = dagilimFiltreli();
+    const toplamDeger = filtreli.reduce((s,r) => s + (r.guncel_deger_tl||0), 0);
+
+    const gruplar = {};
+    filtreli.forEach(r => {
+      const key = r.semsiye_turu || "Diğer";
+      gruplar[key] = (gruplar[key]||0) + (r.guncel_deger_tl||0);
+    });
+
+    const veri = Object.keys(gruplar).map(k => ({
+      semsiye_turu: k,
+      guncel_deger_tl: gruplar[k],
+      agirlik: toplamDeger ? (gruplar[k] / toplamDeger * 100) : 0,
     })).sort((a,b)=> b.agirlik - a.agirlik);
 
-    $("#empty-dagilim").style.display = "none";
+    $("#empty-dagilim").style.display = veri.length ? "none" : "block";
+    if (!veri.length) $("#empty-dagilim").textContent = "Bu filtreyle eslesen fon yok.";
     const wrap = $("#bar-list");
-    wrap.style.display = "flex";
+    wrap.style.display = veri.length ? "flex" : "none";
     wrap.innerHTML = veri.map((row,i) => {
       const renk = KATEGORI_RENK[row.semsiye_turu] || renkSirali(i);
       return `
@@ -962,6 +1232,22 @@
         </div>
       </div>`;
     }).join("");
+  }
+
+  // Kategori Dagilimi sekmesi PORTFOY_VERI'ye bagimlidir (portfoy.enc.json).
+  // portfoyVeriYukle basariyla calistiktan sonra bu fonksiyon cagrilarak
+  // filtre seridi kurulur ve grafik ilk kez cizilir.
+  function dagilimBaslat(){
+    if (!PORTFOY_VERI.length) return;
+    DAGILIM_FILTRE = bosFiltreDurumu();
+    dagilimFiltreKontrol = filtreSeridiKur(
+      "#filtre-serit-dagilim", DAGILIM_FILTRE,
+      () => PORTFOY_VERI,
+      r => r.semsiye_turu, r => r.kategori,
+      dagilimCiz
+    );
+    dagilimKuruldu = true;
+    dagilimCiz();
   }
 
   const GITHUB_RAW_TEMEL = "https://raw.githubusercontent.com/HectorOfWilusa/prowiljectasu/main/sifreli";
@@ -993,15 +1279,13 @@
     const sonuclar = await Promise.allSettled([
       githubtanCekVeCoz("fonlar.enc.json", sifre),
       githubtanCekVeCoz("portfoy.enc.json", sifre),
-      githubtanCekVeCoz("kategori.enc.json", sifre),
     ]);
 
-    const [fonlarR, portfoyR, kategoriR] = sonuclar;
+    const [fonlarR, portfoyR] = sonuclar;
     let basarili = 0;
 
     if (fonlarR.status === "fulfilled"){ fonlarVeriYukle(fonlarR.value); basarili++; }
     if (portfoyR.status === "fulfilled"){ portfoyVeriYukle(portfoyR.value); basarili++; }
-    if (kategoriR.status === "fulfilled"){ dagilimVeriYukle(kategoriR.value); basarili++; }
 
     try {
       const metaYanit = await fetch(`${GITHUB_RAW_TEMEL}/meta.json?t=${Date.now()}`);
@@ -1033,7 +1317,7 @@
 
     try {
       const basariliSayisi = await tumVeriyiYukle(sifre);
-      durum.className = "ok"; durum.textContent = `Giriş başarılı (${basariliSayisi}/3 veri seti).`;
+      durum.className = "ok"; durum.textContent = `Giriş başarılı (${basariliSayisi}/2 veri seti).`;
       if ($("#kilit-hatirla").checked){
         try { sessionStorage.setItem(SESSION_ANAHTAR, sifre); } catch(e){}
       }
