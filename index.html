@@ -492,6 +492,7 @@
   <button class="tab-btn active" data-tab="tum-fonlar">Tüm Fonlar</button>
   <button class="tab-btn" data-tab="portfoyum">Portföyüm</button>
   <button class="tab-btn" data-tab="kategori">Kategori Dağılımı</button>
+  <button class="tab-btn" data-tab="islemler">İşlemler</button>
   <button class="tab-btn" data-tab="islem-ekle">İşlem Ekle</button>
 </div>
 
@@ -608,6 +609,44 @@
   <div class="bar-list" id="bar-list-kategori" style="display:none"></div>
 
   <div class="empty-state" id="empty-dagilim">Veri yükleniyor...</div>
+</div>
+
+<div class="tab-panel" id="panel-islemler">
+  <div class="kpis" id="kpis-islemler" style="display:none">
+    <div class="kpi"><div class="label">Toplam İşlem</div><div class="value" id="kpi-i-toplam">—</div></div>
+    <div class="kpi"><div class="label">Alım</div><div class="value pos" id="kpi-i-alim">—</div></div>
+    <div class="kpi"><div class="label">Satım</div><div class="value neg" id="kpi-i-satim">—</div></div>
+  </div>
+
+  <div class="controls" id="controls-islemler" style="display:none">
+    <input type="search" id="arama-islemler" placeholder="Fon kodu veya adı ara...">
+    <select id="siralama-alani-islemler">
+      <option value="tarih">Tarih</option>
+      <option value="fon_kodu">Fon Kodu</option>
+      <option value="pay_sayisi">Pay Sayısı</option>
+      <option value="fiyat">Fiyat</option>
+    </select>
+    <span class="row-count" id="row-count-islemler"></span>
+  </div>
+
+  <div class="table-wrap" id="table-wrap-islemler" style="display:none">
+    <table id="tablo-islemler">
+      <thead>
+        <tr>
+          <th class="sabit-sutun kod-sutun" data-key="fon_kodu">Kod <span class="arrow">▼</span></th>
+          <th class="sabit-sutun ad-sutun" data-key="fon_adi">Fon Adı <span class="arrow">▼</span></th>
+          <th data-key="islem_tipi">İşlem <span class="arrow">▼</span></th>
+          <th data-key="tarih">Tarih <span class="arrow">▼</span></th>
+          <th data-key="pay_sayisi">Pay Sayısı <span class="arrow">▼</span></th>
+          <th data-key="fiyat">Fiyat <span class="arrow">▼</span></th>
+          <th data-key="kanal">Kanal <span class="arrow">▼</span></th>
+        </tr>
+      </thead>
+      <tbody id="tbody-islemler"></tbody>
+    </table>
+  </div>
+
+  <div class="empty-state" id="empty-islemler">Veri yükleniyor...</div>
 </div>
 
 <div class="tab-panel" id="panel-islem-ekle">
@@ -1221,6 +1260,98 @@
     });
   });
 
+  // ============================================================
+  // ISLEMLER - islemler.csv gecmisi (islemler.enc.json)
+  // ============================================================
+  let ISLEMLER_VERI = [];
+  let islemlerSiralamaAlani = "tarih";
+  let islemlerSiralamaYonu = -1; // -1: yeni -> eski (varsayilan)
+
+  function islemlerVeriYukle(rows){
+    ISLEMLER_VERI = rows.filter(r => r.fon_kodu && String(r.fon_kodu).trim() !== "").map(r => ({
+      fon_kodu: r.fon_kodu,
+      fon_adi: r.fon_adi || "",
+      islem_tipi: (r.islem_tipi || "").toUpperCase(),
+      tarih: r.tarih || "",
+      pay_sayisi: (r.pay_sayisi===undefined||r.pay_sayisi===null||r.pay_sayisi==="") ? null : Number(r.pay_sayisi),
+      fiyat: (r.fiyat===undefined||r.fiyat===null||r.fiyat==="") ? null : Number(r.fiyat),
+      kanal: r.kanal || "",
+    }));
+    $("#kpis-islemler").style.display = "grid";
+    $("#controls-islemler").style.display = "flex";
+    $("#table-wrap-islemler").style.display = "block";
+    $("#empty-islemler").style.display = "none";
+    islemlerCiz();
+  }
+
+  function islemlerFiltreli(){
+    const q = $("#arama-islemler").value.trim().toLocaleLowerCase("tr");
+    if (!q) return ISLEMLER_VERI;
+    return ISLEMLER_VERI.filter(r =>
+      (r.fon_kodu||"").toLocaleLowerCase("tr").includes(q) ||
+      (r.fon_adi||"").toLocaleLowerCase("tr").includes(q)
+    );
+  }
+
+  function islemlerSirali(){
+    const data = islemlerFiltreli().slice();
+    const alan = islemlerSiralamaAlani;
+    data.sort((a,b) => {
+      let va=a[alan], vb=b[alan];
+      if (alan === "tarih" || alan === "fon_kodu"){
+        return islemlerSiralamaYonu * String(va||"").localeCompare(String(vb||""), "tr");
+      }
+      const na=(va===null||va===undefined), nb=(vb===null||vb===undefined);
+      if (na&&nb) return 0; if (na) return 1; if (nb) return -1;
+      return islemlerSiralamaYonu * (va-vb);
+    });
+    return data;
+  }
+
+  function islemTipiHucre(tip){
+    const etiket = tip === "ALIM" ? "Alım" : (tip === "SATIM" ? "Satım" : (tip||"—"));
+    const cls = tip === "ALIM" ? "pos" : (tip === "SATIM" ? "neg" : "");
+    return `<td class="g ${cls}">${etiket}</td>`;
+  }
+
+  function islemlerCiz(){
+    const data = islemlerSirali();
+    $("#tbody-islemler").innerHTML = data.map(r => `
+      <tr>
+        <td class="kod sabit-sutun kod-sutun">${r.fon_kodu}</td>
+        <td class="ad sabit-sutun ad-sutun" title="${r.fon_adi}">${r.fon_adi}</td>
+        ${islemTipiHucre(r.islem_tipi)}
+        <td>${r.tarih || "—"}</td>
+        <td class="num">${r.pay_sayisi!=null ? r.pay_sayisi.toLocaleString("tr-TR",{maximumFractionDigits:2}) : "—"}</td>
+        <td class="num">${r.fiyat!=null ? r.fiyat.toFixed(6) : "—"}</td>
+        <td>${r.kanal || "—"}</td>
+      </tr>`).join("");
+    $("#row-count-islemler").textContent = `${data.length} / ${ISLEMLER_VERI.length} işlem gösteriliyor`;
+    document.querySelectorAll("#tablo-islemler thead th").forEach(th => {
+      th.classList.toggle("sorted", th.dataset.key === islemlerSiralamaAlani);
+      const arrow = th.querySelector(".arrow");
+      if (arrow && th.dataset.key === islemlerSiralamaAlani) arrow.textContent = islemlerSiralamaYonu===-1?"▼":"▲";
+    });
+    islemlerKpiGuncelle(data);
+  }
+
+  function islemlerKpiGuncelle(data){
+    $("#kpi-i-toplam").textContent = data.length;
+    $("#kpi-i-alim").textContent = data.filter(r => r.islem_tipi === "ALIM").length;
+    $("#kpi-i-satim").textContent = data.filter(r => r.islem_tipi === "SATIM").length;
+  }
+
+  $("#arama-islemler").addEventListener("input", islemlerCiz);
+  $("#siralama-alani-islemler").addEventListener("change", e => { islemlerSiralamaAlani=e.target.value; islemlerSiralamaYonu=-1; islemlerCiz(); });
+  document.querySelectorAll("#tablo-islemler thead th").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.key;
+      if (islemlerSiralamaAlani===key) islemlerSiralamaYonu*=-1; else { islemlerSiralamaAlani=key; islemlerSiralamaYonu=-1; }
+      $("#siralama-alani-islemler").value = key;
+      islemlerCiz();
+    });
+  });
+
   let DAGILIM_FILTRE = bosFiltreDurumu();
   let dagilimFiltreKontrol = null;
   let dagilimKuruldu = false;
@@ -1342,13 +1473,15 @@
     const sonuclar = await Promise.allSettled([
       githubtanCekVeCoz("fonlar.enc.json", sifre),
       githubtanCekVeCoz("portfoy.enc.json", sifre),
+      githubtanCekVeCoz("islemler.enc.json", sifre),
     ]);
 
-    const [fonlarR, portfoyR] = sonuclar;
+    const [fonlarR, portfoyR, islemlerR] = sonuclar;
     let basarili = 0;
 
     if (fonlarR.status === "fulfilled"){ fonlarVeriYukle(fonlarR.value); basarili++; }
     if (portfoyR.status === "fulfilled"){ portfoyVeriYukle(portfoyR.value); basarili++; }
+    if (islemlerR.status === "fulfilled"){ islemlerVeriYukle(islemlerR.value); basarili++; }
 
     try {
       const metaYanit = await fetch(`${GITHUB_RAW_TEMEL}/meta.json?t=${Date.now()}`);
@@ -1380,7 +1513,7 @@
 
     try {
       const basariliSayisi = await tumVeriyiYukle(sifre);
-      durum.className = "ok"; durum.textContent = `Giriş başarılı (${basariliSayisi}/2 veri seti).`;
+      durum.className = "ok"; durum.textContent = `Giriş başarılı (${basariliSayisi}/3 veri seti).`;
       if ($("#kilit-hatirla").checked){
         try { sessionStorage.setItem(SESSION_ANAHTAR, sifre); } catch(e){}
       }

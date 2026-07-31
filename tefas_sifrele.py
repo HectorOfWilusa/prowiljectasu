@@ -33,10 +33,6 @@ Yerel kullanim (Windows cmd):
   set TEFAS_PANO_SIFRE=senin-sifren
   python tefas_sifrele.py
 
-Not (Windows kullanicilari): Saat dilimi (TSI) hesaplamasi icin 'tzdata'
-paketi gerekebilir - Linux/Mac'te genelde sistemde zaten var ama Windows'ta
-olmayabilir. Eksikse: pip install tzdata
-
 Kullanim:
   python tefas_sifrele.py
 """
@@ -48,7 +44,6 @@ import logging
 import base64
 from pathlib import Path
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
 import pandas as pd
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -61,7 +56,6 @@ SIFRELI_KLASOR = BU_KLASOR / "sifreli"
 SIFRELI_KLASOR.mkdir(exist_ok=True)
 
 PBKDF2_ITERASYON = 100_000
-TR_SAAT_DILIMI = ZoneInfo("Europe/Istanbul")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -164,8 +158,16 @@ def main() -> int:
         kategori_dosya if kategori_dosya.exists() else None, sifre, "kategori.enc.json"
     )
 
+    # islemler.csv repo kokunde (BU_KLASOR) durur - tefas_issue_isle.py
+    # tarafindan GitHub Issues akisiyla guncellenir. Public repoda
+    # sifresiz durmasin diye digerleriyle ayni sekilde sifrelenir.
+    islemler_dosya = BU_KLASOR / "islemler.csv"
+    sonuclar["islemler"] = csv_yukle_ve_sifrele(
+        islemler_dosya if islemler_dosya.exists() else None, sifre, "islemler.enc.json"
+    )
+
     meta = {
-        "son_guncelleme": datetime.now(TR_SAAT_DILIMI).strftime("%Y-%m-%d %H:%M:%S"),
+        "son_guncelleme": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "sifrelenen_dosyalar": {k: v for k, v in sonuclar.items()},
     }
     with open(SIFRELI_KLASOR / "meta.json", "w", encoding="utf-8") as f:
