@@ -44,6 +44,7 @@ import pandas as pd
 
 VERI_KLASORU = Path.home() / "TEFAS_VERI"
 VERI_KLASORU.mkdir(parents=True, exist_ok=True)
+BU_KLASOR = Path(__file__).resolve().parent
 
 logging.basicConfig(
     level=logging.INFO,
@@ -173,6 +174,12 @@ def fon_kategori_referans_yukle() -> pd.DataFrame | None:
     gibi). Bu, semsiye_turu'nun YERINE DEGIL, ONUN YANINA eklenen AYRI bir
     "kategori" kolonu olarak kullanilir.
 
+    Bu dosya ELLE guncellenip GitHub reposuna commit'lenen bir dosyadir
+    (TEFAS_VERI gibi otomatik/gecici veri degil) - bu yuzden script'in
+    kendi klasorunden (BU_KLASOR, yani repo - orn. C:\\TEFAS) okunur,
+    TEFAS_VERI'den DEGIL. Boylece hem yerelde hem GitHub Actions'ta
+    (repo checkout edildiginde) ayni dosya kullanilir.
+
     Dosya formati (; ile ayrilmis, UTF-8):
       fon_kodu;kategoriler
       NAU;Altın Fonları, Emtia Fonları
@@ -180,9 +187,9 @@ def fon_kategori_referans_yukle() -> pd.DataFrame | None:
     Dosya yoksa (henuz hazirlanmadiysa) sessizce None doner - diger her
     sey calismaya devam eder, "kategori" kolonu sadece eklenmez.
     """
-    yol = VERI_KLASORU / "fon_kategori_referans.csv"
+    yol = BU_KLASOR / "fon_kategori_referans.csv"
     if not yol.exists():
-        log.warning("fon_kategori_referans.csv bulunamadi - 'kategori' kolonu eklenmeyecek.")
+        log.warning("fon_kategori_referans.csv bulunamadi (%s) - 'kategori' kolonu eklenmeyecek.", yol)
         return None
     df = pd.read_csv(yol, sep=";", encoding="utf-8-sig")
     gerekli = {"fon_kodu", "kategoriler"}
