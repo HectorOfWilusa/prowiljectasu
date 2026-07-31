@@ -4,15 +4,16 @@ TEFAS Gunluk Calisma - Ana Script (Gorev Zamanlayici bunu cagirir)
 Her is gunu 10:10'da calisir. Sirasiyla:
   1) tefas_gunluk.py            -> fiyat + varlik dagilimi (pytefas)
   2) tefas_getiri_kategori.py   -> semsiye turu + risk + hazir getiriler
-  3) tefas_portfoy_degerle.py   -> portfoy degerleme (portfoyum_ozet.csv varsa)
-  4) tefas_sifrele.py           -> dashboard icin CSV'leri sifreler (TEFAS_PANO_SIFRE gerekir)
-  5) tefas_git_gonder.py        -> sifreli dosyalari GitHub'a gonderir
+  3) tefas_kayan_pencere.py     -> 1G/1H/2H/3H/2A kayan pencere getirileri (YAT)
+  4) tefas_portfoy_degerle.py   -> portfoy degerleme (portfoyum_ozet.csv varsa)
+  5) tefas_sifrele.py           -> dashboard icin CSV'leri sifreler (TEFAS_PANO_SIFRE gerekir)
+  6) tefas_git_gonder.py        -> sifreli dosyalari GitHub'a gonderir
 
 Hepsi kendi log kayitlarini TEFAS_VERI/log.txt'e yazar.
 Bu script sadece sirasiyla cagirir ve genel bir ozet basar.
 
-4. ve 5. adimlar GitHub/sifreleme kurulumu henuz yapilmadiysa (ortam
-degiskeni veya git repo yoksa) sessizce atlanir - ilk iki/uc adim her
+5. ve 6. adimlar GitHub/sifreleme kurulumu henuz yapilmadiysa (ortam
+degiskeni veya git repo yoksa) sessizce atlanir - ilk dort adim her
 zaman calisir, mevcut yerel kullanim bozulmaz.
 
 Kullanim:
@@ -63,6 +64,11 @@ def main() -> int:
     sonuc_1 = calistir("tefas_gunluk.py")
     sonuc_2 = calistir("tefas_getiri_kategori.py")
 
+    # Kayan pencere getirileri (1G/1H/2H/3H/2A), master_info.parquet'in
+    # guncel olmasina bagimli - bu yuzden tefas_gunluk.py'den hemen sonra,
+    # portfoy degerlemeden once calisir.
+    sonuc_kayan = calistir("tefas_kayan_pencere.py")
+
     # Portfoy degerleme, ilk ikisinin verisine bagimli oldugu icin en son calisir.
     # portfoyum_ozet.csv yoksa (henuz olusturulmadiysa) bu adimi atla, digerlerini bozma.
     portfoy_dosyasi = BU_KLASOR / "portfoyum_ozet.csv"
@@ -93,7 +99,7 @@ def main() -> int:
 
     sure = (datetime.now() - baslangic).total_seconds()
     log.info("-"*60)
-    if sonuc_1 and sonuc_2 and sonuc_3 and sonuc_4 and sonuc_5:
+    if sonuc_1 and sonuc_2 and sonuc_kayan and sonuc_3 and sonuc_4 and sonuc_5:
         log.info("TUM ADIMLAR BASARILI. Sure: %.0f saniye", sure)
         donus = 0
     else:
