@@ -517,7 +517,12 @@
   <div class="controls" id="controls-fonlar" style="display:none">
     <input type="search" id="arama-fonlar" placeholder="Fon kodu veya adı ara...">
     <select id="siralama-alani-fonlar">
+      <option value="getiri_1G_%">1 Gün Getiri</option>
+      <option value="getiri_1H_%">1 Hafta Getiri</option>
+      <option value="getiri_2H_%">2 Hafta Getiri</option>
+      <option value="getiri_3H_%">3 Hafta Getiri</option>
       <option value="getiri_1A_%">1 Ay Getiri</option>
+      <option value="getiri_2A_%">2 Ay Getiri</option>
       <option value="getiri_3A_%">3 Ay Getiri</option>
       <option value="getiri_6A_%">6 Ay Getiri</option>
       <option value="getiri_1Y_%">1 Yıl Getiri</option>
@@ -539,7 +544,12 @@
           <th data-key="semsiye_turu">Şemsiye Türü <span class="arrow">▼</span></th>
           <th data-key="kategori">Kategori <span class="arrow">▼</span></th>
           <th data-key="risk_degeri">Risk <span class="arrow">▼</span></th>
+          <th data-key="getiri_1G_%">1 Gün <span class="arrow">▼</span></th>
+          <th data-key="getiri_1H_%">1 Hafta <span class="arrow">▼</span></th>
+          <th data-key="getiri_2H_%">2 Hafta <span class="arrow">▼</span></th>
+          <th data-key="getiri_3H_%">3 Hafta <span class="arrow">▼</span></th>
           <th data-key="getiri_1A_%">1A % <span class="arrow">▼</span></th>
+          <th data-key="getiri_2A_%">2 Ay <span class="arrow">▼</span></th>
           <th data-key="getiri_3A_%">3A % <span class="arrow">▼</span></th>
           <th data-key="getiri_6A_%">6A % <span class="arrow">▼</span></th>
           <th data-key="getiri_1Y_%">1Y % <span class="arrow">▼</span></th>
@@ -608,6 +618,7 @@
   <div class="controls" id="controls-performans" style="display:none">
     <input type="search" id="arama-performans" placeholder="Fon kodu veya adı ara...">
     <select id="siralama-alani-performans">
+      <option value="gunluk_ortalama_kazanc_%">Günlük Ort. Kazanç</option>
       <option value="getiri_1G_%">1 Gün</option>
       <option value="getiri_1H_%">1 Hafta</option>
       <option value="getiri_2H_%">2 Hafta</option>
@@ -632,6 +643,7 @@
           <th class="sabit-sutun ad-sutun" data-key="fon_adi">Fon Adı <span class="arrow">▼</span></th>
           <th data-key="guncel_deger_tl">Güncel Değer</th>
           <th data-key="kar_zarar_%">K/Z (%)</th>
+          <th data-key="gunluk_ortalama_kazanc_%">Günlük Ort. % <span class="arrow">▼</span></th>
           <th data-key="getiri_1G_%">1 Gün <span class="arrow">▼</span></th>
           <th data-key="getiri_1H_%">1 Hafta <span class="arrow">▼</span></th>
           <th data-key="getiri_2H_%">2 Hafta <span class="arrow">▼</span></th>
@@ -813,7 +825,7 @@
   let fonlarSiralamaYonu = -1;
 
   function fonlarVeriYukle(rows){
-    const alanlar = ["getiri_1A_%","getiri_3A_%","getiri_6A_%","getiri_1Y_%","getiri_YBB_%","getiri_3Y_%","getiri_5Y_%","risk_degeri"];
+    const alanlar = ["getiri_1G_%","getiri_1H_%","getiri_2H_%","getiri_3H_%","getiri_1A_%","getiri_2A_%","getiri_3A_%","getiri_6A_%","getiri_1Y_%","getiri_YBB_%","getiri_3Y_%","getiri_5Y_%","risk_degeri"];
     FONLAR_VERI = rows.filter(r => r.fund_code && String(r.fund_code).trim() !== "").map(r => {
       const obj = { fund_code:r.fund_code, fund_name:r.fund_name, semsiye_turu:r.semsiye_turu||"Diğer", fon_tipi:r.fon_tipi||"YAT", kategori:r.kategori||null };
       alanlar.forEach(a => obj[a] = (r[a]===undefined||r[a]===null||r[a]==="") ? null : Number(r[a]));
@@ -1159,7 +1171,12 @@
         <td class="kat"><span class="kat-pill"><span class="sw" style="background:${renkAl(r.semsiye_turu)}"></span>${r.semsiye_turu}</span></td>
         ${kategoriHucre(r.kategori)}
         <td>${riskNoktalari(r.risk_degeri)}</td>
+        ${hucreGetiri(r["getiri_1G_%"])}
+        ${hucreGetiri(r["getiri_1H_%"])}
+        ${hucreGetiri(r["getiri_2H_%"])}
+        ${hucreGetiri(r["getiri_3H_%"])}
         ${hucreGetiri(r["getiri_1A_%"])}
+        ${hucreGetiri(r["getiri_2A_%"])}
         ${hucreGetiri(r["getiri_3A_%"])}
         ${hucreGetiri(r["getiri_6A_%"])}
         ${hucreGetiri(r["getiri_1Y_%"])}
@@ -1380,6 +1397,7 @@
         <td class="ad sabit-sutun ad-sutun" title="${r.fon_adi}">${r.fon_adi}</td>
         ${hucreTL(r.guncel_deger_tl)}
         ${hucreKZ(r["kar_zarar_%"],"yuzde2")}
+        ${hucreKZ(r["gunluk_ortalama_kazanc_%"],"yuzde4")}
         ${hucreGetiri(r["getiri_1G_%"])}
         ${hucreGetiri(r["getiri_1H_%"])}
         ${hucreGetiri(r["getiri_2H_%"])}
