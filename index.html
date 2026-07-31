@@ -177,6 +177,9 @@
   .kpi .value{ font-size:22px; font-weight:650; margin-top:6px; color:var(--text); }
   .kpi .value.pos{ color:var(--pos); }
   .kpi .value.neg{ color:var(--neg); }
+  .kpi .value-alt{ font-size:12.5px; font-weight:600; margin-top:3px; color:var(--text-faint); }
+  .kpi .value-alt.pos{ color:var(--pos); }
+  .kpi .value-alt.neg{ color:var(--neg); }
 
   .kategori-serit{ display:flex; flex-wrap:wrap; gap:8px; padding:18px 32px 0; }
 
@@ -572,6 +575,9 @@
     <div class="kpi"><div class="label">Kâr / Zarar</div><div class="value" id="kpi-p-kz">—</div></div>
     <div class="kpi"><div class="label">Kâr / Zarar %</div><div class="value" id="kpi-p-kzpct">—</div></div>
     <div class="kpi"><div class="label">Fon Sayısı</div><div class="value" id="kpi-p-sayi">—</div></div>
+    <div class="kpi"><div class="label">Günlük Getiri</div><div class="value" id="kpi-p-gunluk-tl">—</div><div class="value-alt" id="kpi-p-gunluk-pct">—</div></div>
+    <div class="kpi"><div class="label">Haftalık Getiri</div><div class="value" id="kpi-p-haftalik-tl">—</div><div class="value-alt" id="kpi-p-haftalik-pct">—</div></div>
+    <div class="kpi"><div class="label">Aylık Getiri</div><div class="value" id="kpi-p-aylik-tl">—</div><div class="value-alt" id="kpi-p-aylik-pct">—</div></div>
   </div>
 
   <div class="filtre-serit" id="filtre-serit-portfoy"></div>
@@ -1348,6 +1354,44 @@
       kzPctEl.className = "value "+(toplamKZPct>0?"pos":(toplamKZPct<0?"neg":""));
     }
     $("#kpi-p-sayi").textContent = data.length;
+
+    // Gunluk/Haftalik/Aylik getiri: her fonun kendi getiri_XX_% degeri,
+    // o fonun guncel_deger_tl'si ile agirliklandirilarak portfoy geneli
+    // TAHMINI bir TL tutari ve agirlikli ortalama yuzde elde edilir.
+    // Not: bu YAKLASIK bir hesaptir - gercek "X gun/hafta/ay onceki
+    // toplam portfoy degeri" zaman serisi tutulmadigi icin, her fonun
+    // guncel degeri sabit kabul edilip o fonun kendi donemsel getiri
+    // yuzdesiyle carpilarak TL katkisi tahmin edilir.
+    agirlikliGetiriKpiGuncelle(data, "getiri_1G_%", "#kpi-p-gunluk-tl", "#kpi-p-gunluk-pct");
+    agirlikliGetiriKpiGuncelle(data, "getiri_1H_%", "#kpi-p-haftalik-tl", "#kpi-p-haftalik-pct");
+    agirlikliGetiriKpiGuncelle(data, "getiri_1A_%", "#kpi-p-aylik-tl", "#kpi-p-aylik-pct");
+  }
+
+  function agirlikliGetiriKpiGuncelle(data, getiriAlani, tlSelector, pctSelector){
+    const tlEl = $(tlSelector);
+    const pctEl = $(pctSelector);
+
+    // Sadece hem guncel_deger_tl hem de ilgili getiri_XX_% degeri dolu olan
+    // fonlar hesaba katilir - eksik veri sessizce disarida birakilir.
+    const gecerliler = data.filter(r =>
+      r.guncel_deger_tl!=null && r[getiriAlani]!=null && !Number.isNaN(r[getiriAlani])
+    );
+    const kapsananDeger = gecerliler.reduce((s,r)=> s + r.guncel_deger_tl, 0);
+
+    if (!gecerliler.length || !kapsananDeger){
+      tlEl.textContent = "—"; tlEl.className = "value";
+      pctEl.textContent = "—"; pctEl.className = "value-alt";
+      return;
+    }
+
+    const tlKatkisi = gecerliler.reduce((s,r)=> s + (r.guncel_deger_tl * r[getiriAlani] / 100), 0);
+    const agirlikliPct = (tlKatkisi / kapsananDeger) * 100;
+
+    tlEl.textContent = (tlKatkisi>0?"+":"") + tlFmt(tlKatkisi);
+    tlEl.className = "value " + (tlKatkisi>0?"pos":(tlKatkisi<0?"neg":""));
+
+    pctEl.textContent = (agirlikliPct>0?"+":"") + agirlikliPct.toFixed(2) + "%";
+    pctEl.className = "value-alt " + (agirlikliPct>0?"pos":(agirlikliPct<0?"neg":""));
   }
 
   // ============================================================
