@@ -554,7 +554,12 @@
         </div>
         <div class="islem-alan">
           <label for="islem-kanal">Kanal</label>
-          <input type="text" id="islem-kanal" placeholder="YKB" style="text-transform:uppercase">
+          <select id="islem-kanal">
+            <option value="YKB">YKB</option>
+            <option value="VKF">VKF</option>
+            <option value="KVT">KVT</option>
+            <option value="M">M</option>
+          </select>
         </div>
         <div class="islem-alan">
           <label for="islem-tipi">İşlem</label>
@@ -573,7 +578,7 @@
         </div>
         <div class="islem-alan">
           <label for="islem-fiyat">Fiyat</label>
-          <input type="number" id="islem-fiyat" placeholder="1,4500" min="0" step="any">
+          <input type="number" id="islem-fiyat" placeholder="1,450000" min="0" step="any">
         </div>
       </div>
 
@@ -885,8 +890,8 @@
         <td class="kat">${r.semsiye_turu ? `<span class="kat-pill"><span class="sw" style="background:${renkAl(r.semsiye_turu)}"></span>${r.semsiye_turu}</span>` : '<span class="g na">—</span>'}</td>
         ${kategoriHucre(r.kategori)}
         <td class="num">${r.toplam_pay!=null ? r.toplam_pay.toLocaleString("tr-TR",{maximumFractionDigits:2}) : "—"}</td>
-        <td class="num">${r.agirlikli_ort_alis_fiyati!=null ? r.agirlikli_ort_alis_fiyati.toFixed(4) : "—"}</td>
-        <td class="num">${r.guncel_fiyat!=null ? r.guncel_fiyat.toFixed(4) : "—"}</td>
+        <td class="num">${r.agirlikli_ort_alis_fiyati!=null ? r.agirlikli_ort_alis_fiyati.toFixed(6) : "—"}</td>
+        <td class="num">${r.guncel_fiyat!=null ? r.guncel_fiyat.toFixed(6) : "—"}</td>
         ${hucreTL(r.toplam_maliyet_tl)}
         ${hucreTL(r.guncel_deger_tl)}
         ${hucreKZ(r.kar_zarar_tl,"tl")}
@@ -1160,6 +1165,32 @@
     const mm = String(bugun.getMonth() + 1).padStart(2, "0");
     const dd = String(bugun.getDate()).padStart(2, "0");
     tarihInput.value = `${yyyy}-${mm}-${dd}`;
+  })();
+
+  // Fon kodu girildiginde, FONLAR_VERI icinde eslesen fonun adini
+  // otomatik doldurur. Kullanici fon adini elle degistirmisse (kendi
+  // yazdiysa) tekrar ezmemek icin, sadece alan bos VEYA daha once
+  // otomatik doldurulmus bir deger tasiyorsa ustune yazar.
+  (function fonKoduOtomatikDoldurBaslat(){
+    const kodInput = $$("#islem-fon-kodu");
+    const adInput = $$("#islem-fon-adi");
+    if (!kodInput || !adInput) return;
+
+    let sonOtomatikDeger = "";
+
+    kodInput.addEventListener("input", () => {
+      const kod = kodInput.value.trim().toUpperCase();
+      const eslesen = FONLAR_VERI.find(r => r.fund_code === kod);
+
+      if (eslesen && eslesen.fund_name){
+        // Fon adi alani bossa ya da bir onceki otomatik doldurmadan
+        // hic elle degistirilmemisse, yeni fonun adini yaz.
+        if (!adInput.value.trim() || adInput.value === sonOtomatikDeger){
+          adInput.value = eslesen.fund_name;
+          sonOtomatikDeger = eslesen.fund_name;
+        }
+      }
+    });
   })();
 
   function islemFormunuOku(){
