@@ -24,6 +24,17 @@ jobs:
     # baska turden Issue'lar (bug report, soru, vs.) bu is akisini tetiklemez.
     if: startsWith(github.event.issue.title, '[TEFAS-ISLEM]')
     runs-on: ubuntu-latest
+    env:
+      # ONEMLI: tefas_issue_isle.py, tefas_portfoy_degerle.py ve
+      # tefas_sifrele.py, VERI_KLASORU'nu Path.home() / "TEFAS_VERI" olarak
+      # hesapliyor. HOME burada ACIKCA AYARLANMAZSA, GitHub Actions
+      # runner'inin varsayilan HOME'u (/home/runner) kullanilir - ki repo
+      # ORADA DEGIL, /home/runner/work/... altinda. Bu yuzden
+      # master_info.parquet gibi dosyalar "bulunamadi" hatasi verir.
+      # tefas-gunluk.yml'de bu zaten dogru ayarliydi, burada da AYNI
+      # SEKILDE (job genelinde, tum adimlara uygulanacak sekilde)
+      # ayarlaniyor ki Path.home() = repo koku olsun.
+      HOME: ${{ github.workspace }}
 
     steps:
       - uses: actions/checkout@v4
