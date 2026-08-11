@@ -45,18 +45,47 @@ def komut_calistir(komut: list[str]) -> tuple[bool, str]:
     return sonuc.returncode == 0, cikti.strip()
 
 
+# Bu dosyalar GitHub Actions'ta her calisma bagimsiz bir ortamda basladigi
+# icin (repo her seferinde sifirdan indirilir), eger buraya commit
+# EDILMEZSE ertesi gunku calisma dunku veriyi hic GORMEZ - master_info,
+# master_dagilim, kayan pencere gibi "birikimli" dosyalar aslinda hicbir
+# zaman birikmez, her gun tek gunluk veriyle sifirdan baslar. Kayan
+# pencere / aktiflik skoru gibi "ardisik gun karsilastirmasi" gerektiren
+# hesaplamalar bu yuzden surekli "yeterli veri yok" hatasi verir.
+#
+# Cozum: sifreli/ ile BIRLIKTE bu ham/ara veri dosyalarini da commit'liyoruz.
+# Bunlar sifrelenmemis durumda kalir (zaten TEFAS'in kendi genel/kamuya
+# acik API verisi - gizli/kisisel bir sey icermiyor). log.txt kasten
+# DAHIL EDILMEDI - surekli buyuyen, deger tasimayan bir dosya.
+TAKIP_EDILECEK_VERI_DOSYALARI = [
+    "TEFAS_VERI/master_info.parquet",
+    "TEFAS_VERI/master_dagilim.parquet",
+    "TEFAS_VERI/kayan_pencere_60gun.parquet",
+    "TEFAS_VERI/getiri_kayan_pencere.parquet",
+    "TEFAS_VERI/dagilim_kayan_pencere.parquet",
+    "TEFAS_VERI/aktiflik_skoru.parquet",
+]
+
+
 def main() -> int:
     if not SIFRELI_KLASOR.exists():
         log.error("sifreli/ klasoru bulunamadi. Once tefas_sifrele.py calistirilmali.")
         return 1
 
-    basarili, cikti = komut_calistir(["git", "add", "sifreli/"])
+    eklenecekler = ["sifreli/"]
+    for goreli_yol in TAKIP_EDILECEK_VERI_DOSYALARI:
+        if (BU_KLASOR / goreli_yol).exists():
+            eklenecekler.append(goreli_yol)
+        else:
+            log.info("Bulunamadi, commit'e eklenmiyor: %s", goreli_yol)
+
+    basarili, cikti = komut_calistir(["git", "add"] + eklenecekler)
     if not basarili:
         log.error("git add basarisiz: %s", cikti)
         return 1
 
     # Degisiklik yoksa commit atlanir - bu hata degil, normal bir durumdur.
-    durum_basarili, durum_cikti = komut_calistir(["git", "status", "--porcelain", "sifreli/"])
+    durum_basarili, durum_cikti = komut_calistir(["git", "status", "--porcelain"] + eklenecekler)
     if durum_basarili and not durum_cikti:
         log.info("Degisiklik yok, gonderilecek yeni veri bulunmuyor. Atlaniyor.")
         return 0

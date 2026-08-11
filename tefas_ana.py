@@ -75,7 +75,23 @@ def main() -> int:
     # Aktif yonetim skoru, hem master_dagilim.parquet'in (tefas_gunluk.py)
     # hem guncel_getiri_kategori.parquet'in (tefas_getiri_kategori.py)
     # guncel olmasina bagimli - bu yuzden ikisinden sonra calisir.
+    #
+    # ONEMLI: Bu adim KRITIK OLARAK ISARETLENMEZ (asagida genel basari
+    # kontrolune dahil edilmez). Sebep: gunluk degisim hesabi en az 2
+    # ARDISIK GUNUN dagilim verisini gerektirir - master_dagilim.parquet
+    # ilk kez birikmeye basladiginda (veya veri gecmisinde bir bosluk
+    # olustugunda, orn. TEFAS'in birkac gun veri vermedigi bir durumda)
+    # bu adim "yeterli veri yok" diyerek basarisiz olur. Bu BEKLENEN ve
+    # GECICI bir durumdur - veri birktikce kendiliginden duzelir. Bu
+    # yuzden basarisiz olsa bile tum zinciri (ve GitHub Actions'in yesil/
+    # kirmizi durumunu) kirmiyoruz; sadece log.txt'e kaydediliyor.
     sonuc_aktiflik = calistir("tefas_aktiflik_skoru.py")
+    if not sonuc_aktiflik:
+        log.warning(
+            "tefas_aktiflik_skoru.py basarisiz oldu ama bu adim kritik "
+            "sayilmiyor (genelde yeterli ardisik gun verisi birikmedigi "
+            "icin olur) - genel calisma sonucunu ETKILEMEYECEK."
+        )
 
     # Portfoy degerleme, ilk ikisinin verisine bagimli oldugu icin en son calisir.
     # portfoyum_ozet.csv yoksa (henuz olusturulmadiysa) bu adimi atla, digerlerini bozma.
@@ -107,11 +123,17 @@ def main() -> int:
 
     sure = (datetime.now() - baslangic).total_seconds()
     log.info("-"*60)
-    if sonuc_1 and sonuc_2 and sonuc_kayan and sonuc_aktiflik and sonuc_3 and sonuc_4 and sonuc_5:
-        log.info("TUM ADIMLAR BASARILI. Sure: %.0f saniye", sure)
+    # NOT: sonuc_aktiflik bilerek bu kontrole DAHIL EDILMIYOR - yukaridaki
+    # aciklamaya bak (yetersiz ardisik gun verisi nedeniyle gecici/beklenen
+    # basarisizlik olabilir, tum zinciri kirmamali).
+    if sonuc_1 and sonuc_2 and sonuc_kayan and sonuc_3 and sonuc_4 and sonuc_5:
+        if sonuc_aktiflik:
+            log.info("TUM ADIMLAR BASARILI. Sure: %.0f saniye", sure)
+        else:
+            log.info("ANA ADIMLAR BASARILI (aktiflik skoru haric - detay yukarida). Sure: %.0f saniye", sure)
         donus = 0
     else:
-        log.error("BAZI ADIMLAR BASARISIZ OLDU. Sure: %.0f saniye. log.txt'i kontrol et.", sure)
+        log.error("BAZI KRITIK ADIMLAR BASARISIZ OLDU. Sure: %.0f saniye. log.txt'i kontrol et.", sure)
         donus = 1
     log.info("="*60)
     return donus
