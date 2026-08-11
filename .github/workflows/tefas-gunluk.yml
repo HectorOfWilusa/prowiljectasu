@@ -4,8 +4,8 @@ name: TEFAS Gunluk Veri Cekme
 # Hafta ici her gun (Pazartesi-Cuma), GitHub'in cron'u UTC kullanir.
 #
 # IKI FARKLI SAATTE CALISIR:
-#   1) TSI 10:10 - normal calisma zamani
-#   2) TSI 12:00 - bazi fonlarin fiyati TEFAS'ta gecikmeli aciklanabiliyor,
+#   1) TSI ~10:06 - normal calisma zamani
+#   2) TSI ~11:33 - bazi fonlarin fiyati TEFAS'ta gecikmeli aciklanabiliyor,
 #      bu ikinci calisma o gunku eksik kalan fonlari tamamlamak icin var.
 #      Script zaten "en son yayinlanan gunu" arayip GERIYE BAKARAK calisiyor
 #      (tefas_gunluk.py icindeki son_yayinlanan_gunu_bul fonksiyonu), yani
@@ -13,12 +13,19 @@ name: TEFAS Gunluk Veri Cekme
 #      mukerrer veri olusturmaz (drop_duplicates zaten fon+gun bazinda
 #      en son geleni tutuyor).
 #
-# GitHub Actions'in yogun saatlerde 5-20 dakika gecikme yapabildigini
-# unutma - script zaten veri gelene kadar tekrar deniyor.
+# ONEMLI - NEDEN TAM SAAT DEGIL (7:10, 9:00 gibi) DA 7:06, 8:33 GIBI TUHAF
+# DAKIKALAR SECILDI: GitHub Actions'in schedule tetikleyicisi, YUVARLAK
+# UTC saatlerinde (00:00, 07:00, 09:00 gibi) COK YOGUN oluyor - binlerce
+# repo ayni dakikada tetiklenmeye calisiyor, GitHub bunlari kuyruga alip
+# saatlerce erteleyebiliyor (5-20 dakika degil, GOZLEMLENEN gecikme bazen
+# 3-9 saat oldu). Tuhaf/rastgele dakikalar (06, 33 gibi) bu yogunluk
+# noktalarindan kacinip gecikme riskini azaltir - GitHub'in kendi onerisi
+# budur. Yine de GARANTI bir calisma saati YOKTUR; bu yuzden dashboard'da
+# ayrica bir "veri X saatten eskiyse uyar" kontrolu eklendi (index.html).
 on:
   schedule:
-    - cron: '10 7 * * 1-5'
-    - cron: '0 9 * * 1-5'
+    - cron: '6 7 * * 1-5'
+    - cron: '33 8 * * 1-5'
   workflow_dispatch:  # "Run workflow" butonuyla elle de tetiklenebilir
 
 jobs:

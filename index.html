@@ -135,6 +135,19 @@
   .subtitle{ color:var(--text-dim); font-size:13.5px; margin-top:2px; }
   .meta-block{ text-align:right; font-size:12.5px; color:var(--text-faint); line-height:1.6; }
   #veri-tarihi{ color:var(--text-dim); font-weight:600; }
+
+  #veri-uyari{
+    display:none;
+    margin:10px 32px 0;
+    padding:10px 16px;
+    border-radius:8px;
+    background:var(--neg-bg);
+    border:1px solid var(--neg);
+    color:var(--neg);
+    font-size:13px;
+    font-weight:600;
+  }
+  #veri-uyari.gorunur{ display:block; }
   #cikis-btn{
     appearance:none; border:1px solid var(--line); background:none;
     color:var(--text-faint); font-size:11.5px; cursor:pointer;
@@ -498,6 +511,8 @@
     <button id="cikis-btn">Çıkış yap</button>
   </div>
 </header>
+
+<div id="veri-uyari"></div>
 
 <div id="yenile-satir">
   <button id="yenile-btn">↻ Yenile</button>
@@ -1893,6 +1908,66 @@
     return sifreliJsonCoz(paket, sifre);
   }
 
+  // Veri ne kadar eskiyse "bayat" sayilsin? Hafta sonu/tatil gunlerinde
+  // normal bir bosluk oldugu icin sabit "24 saat" YANLIS OLURDU - Pazartesi
+  // sabahi her zaman uyari verirdi (Cuma'dan Pazartesi'ye ~60 saat gecer).
+  // Bunun yerine "en son gecerli is gunu" hesaplanir (hafta sonu atlanarak,
+  // ve bugune TSI 12:10'a kadar sabir payi verilerek - iki calisma saati
+  // TSI ~10:06 ve ~11:33'ten sonra makul bir tampon) - veri bu günden daha
+  // ESKI bir takvim gunune aitse uyari gosterilir.
+  const TOLERANS_SAAT = 12;      // gunun bu saatinden (TSI) once uyari verilmez
+  const TOLERANS_DAKIKA = 10;    // TSI 12:10
+
+  function gunBaslangici(d){
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  }
+
+  function enSonGecerliIsGunu(simdi){
+    let g = new Date(simdi);
+    const bugunToleransSiniri = new Date(simdi);
+    bugunToleransSiniri.setHours(TOLERANS_SAAT, TOLERANS_DAKIKA, 0, 0);
+
+    // Bugun hafta sonuysa VEYA bugunun tolerans siniri (TSI 12:10) henuz
+    // gelmediyse, bir onceki takvim gunune gec.
+    if (g.getDay() === 0 || g.getDay() === 6 || simdi < bugunToleransSiniri){
+      g.setDate(g.getDate() - 1);
+    }
+    // Geriye giderken hafta sonuna denk gelirse hafta ici bir onceki gune atla.
+    while (g.getDay() === 0 || g.getDay() === 6){
+      g.setDate(g.getDate() - 1);
+    }
+    return gunBaslangici(g);
+  }
+
+  function veriTazeligiKontrolEt(sonGuncellemeMetni){
+    const uyariKutusu = $("#veri-uyari");
+    if (!sonGuncellemeMetni){
+      uyariKutusu.textContent = "⚠ Veri güncelleme zamanı okunamadı.";
+      uyariKutusu.classList.add("gorunur");
+      return;
+    }
+    // "YYYY-MM-DD HH:MM:SS" formatini tarayicilar arasi guvenilir parse
+    // etmek icin "T" ile ISO benzeri hale getiriyoruz.
+    const guncelleme = new Date(sonGuncellemeMetni.replace(" ", "T"));
+    if (isNaN(guncelleme.getTime())){
+      uyariKutusu.classList.remove("gorunur");
+      return;
+    }
+    const simdi = new Date();
+    const esikGun = enSonGecerliIsGunu(simdi);
+    const guncellemeGunu = gunBaslangici(guncelleme);
+
+    if (guncellemeGunu < esikGun){
+      const kacSaatOnce = ((simdi - guncelleme) / (1000*60*60)).toFixed(0);
+      uyariKutusu.textContent = `⚠ Veri güncel görünmüyor (son güncelleme ${kacSaatOnce} saat önce). Otomatik çekim gecikmiş olabilir - GitHub Actions sekmesinden kontrol edebilir veya "Run workflow" ile elle tetikleyebilirsin.`;
+      uyariKutusu.classList.add("gorunur");
+    } else {
+      uyariKutusu.classList.remove("gorunur");
+    }
+  }
+
   async function tumVeriyiYukle(sifre){
     const sonuclar = await Promise.allSettled([
       githubtanCekVeCoz("fonlar.enc.json", sifre),
@@ -1914,6 +1989,7 @@
       if (metaYanit.ok){
         const meta = await metaYanit.json();
         $("#veri-tarihi").textContent = meta.son_guncelleme || "—";
+        veriTazeligiKontrolEt(meta.son_guncelleme);
       }
     } catch(e){ /* meta olmasa da sorun degil */ }
 
