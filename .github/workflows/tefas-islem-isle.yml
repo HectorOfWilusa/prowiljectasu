@@ -32,7 +32,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - run: pip install pandas pyarrow
+      - run: pip install pandas pyarrow cryptography
 
       - name: Islemi isle (islemler.csv guncelle + FIFO hesapla)
         id: isle
@@ -41,14 +41,51 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
         run: python tefas_issue_isle.py
 
+      # ONEMLI: Yukaridaki adim sadece HAM CSV'leri (islemler.csv,
+      # portfoyum_ozet.csv, portfoyum_lot_bazli.csv) gunceller. Dashboard
+      # ise bunlari DEGIL, bunlarin SIFRELENMIS halini (sifreli/*.enc.json)
+      # okuyor. O yuzden burada EK OLARAK portfoy degerlemesini yeniden
+      # hesaplayip (yeni eklenen/degisen pay sayilariyla), sonra sifreleyip
+      # GitHub'a gondermemiz lazim - yoksa Issue basariyla kapansa da
+      # dashboard'da hicbir degisiklik GORUNMEZ (bir sonraki gunluk
+      # otomasyon calisana kadar).
+      #
+      # NOT: master_info.parquet (guncel fiyatlar) zaten repoda mevcut -
+      # bu adim TEFAS'a yeniden baglanmiyor, sadece var olan veriyle
+      # portfoyu yeniden degerliyor.
+      - name: Portfoy degerlemesini yenile
+        if: success()
+        run: python tefas_portfoy_degerle.py
+
+      - name: Guncel veriyi sifrele
+        if: success()
+        env:
+          TEFAS_PANO_SIFRE: ${{ secrets.TEFAS_PANO_SIFRE }}
+        run: python tefas_sifrele.py
+
       - name: Degisiklikleri commit'le ve gonder
         if: success()
         run: |
           git config user.name "tefas-islem-bot"
           git config user.email "bot@users.noreply.github.com"
-          git add islemler.csv portfoyum_ozet.csv portfoyum_lot_bazli.csv
+          git add islemler.csv portfoyum_ozet.csv portfoyum_lot_bazli.csv sifreli/
           git diff --staged --quiet || git commit -m "Islem eklendi: Issue #${{ github.event.issue.number }}"
-          git push
+
+          # Ayni anda gunluk otomasyon (tefas-gunluk.yml) da calisiyor
+          # olabilir - push reddedilirse (baska bir calisma once push
+          # etmis olabilir), degisiklikleri cekip tekrar deniyoruz.
+          for deneme in 1 2 3; do
+            if git push; then
+              echo "Push basarili (deneme $deneme)."
+              break
+            fi
+            if [ "$deneme" -eq 3 ]; then
+              echo "Push 3 denemeden sonra basarisiz kaldi."
+              exit 1
+            fi
+            echo "Push reddedildi, uzaktaki degisiklikler cekilip tekrar denenecek (deneme $deneme)."
+            git pull --rebase
+          done
 
       - name: Basarili - Issue'ya yorum ekle ve kapat
         if: success()
