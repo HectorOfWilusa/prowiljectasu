@@ -7,8 +7,8 @@ tum fonlarin fiyat bilgisini ve portfoy dagilimini ceker.
 Ciktilar (VERI_KLASORU altina):
   gunluk/tefas_info_YYYY-MM-DD.csv       -> o gunun fiyat/buyukluk verisi
   gunluk/tefas_dagilim_YYYY-MM-DD.csv    -> o gunun portfoy dagilimi
-  master_info.parquet                    -> tum gecmis (birikimli, tekrarsiz)
-  master_dagilim.parquet                 -> tum gecmis (birikimli, tekrarsiz)
+  master_info.parquet                    -> son ~95 gunluk KAYAN PENCERE (tekrarsiz)
+  master_dagilim.parquet                 -> son ~95 gunluk KAYAN PENCERE (tekrarsiz)
   log.txt                                -> calisma kaydi
 
 Kurulum:
@@ -38,6 +38,13 @@ DAGILIM_CEK  = True                         # portfoy dagilimi da cekilsin mi
 GERI_BAKIS   = 5                            # veri bulunamazsa kac gun geriye bakilsin
 DENEME       = 4                            # 10:10'da veri yoksa kac kez tekrar denensin
 DENEME_ARASI = 300                          # saniye (5 dakika)
+
+# Master dosyalarin ne kadarlik gecmisi tutacagi (kayan pencere).
+# Aktif Yonetim Skoru en uzun 90 gunluk (3 Ay) pencereyi kullaniyor,
+# bu yuzden en az o kadar + tampon gerekiyor. Ayni sayi
+# tefas_aktiflik_skoru.py icindeki TUTULACAK_TAKVIM_GUNU ile TUTARLI
+# tutulmali - biri degisirse digeri de guncellenmeli.
+TUTULACAK_TAKVIM_GUNU = 95
 
 # ----------------------------------------------------------------------
 
@@ -81,7 +88,12 @@ def son_yayinlanan_gunu_bul(tefas: Crawler) -> tuple[pd.DataFrame, date] | tuple
 
 
 def birlestir_kaydet(yeni: pd.DataFrame, dosya: Path, anahtar: list[str]) -> None:
-    """Yeni veriyi master dosyaya ekler, mukerrer satirlari temizler."""
+    """Yeni veriyi master dosyaya ekler, mukerrer satirlari temizler,
+    ve TUTULACAK_TAKVIM_GUNU'ndan eski satirlari ATAR (kayan pencere).
+
+    Boylece master_info.parquet / master_dagilim.parquet buyumeye devam
+    etmez - her gun en eski gun dusup en yeni gun eklenir, dosya boyutu
+    sabit kalir."""
     if dosya.exists():
         eski = pd.read_parquet(dosya)
         birlesik = pd.concat([eski, yeni], ignore_index=True)
@@ -92,6 +104,17 @@ def birlestir_kaydet(yeni: pd.DataFrame, dosya: Path, anahtar: list[str]) -> Non
         .sort_values(anahtar)
         .reset_index(drop=True)
     )
+
+    if "date" in birlesik.columns and not birlesik.empty:
+        son_tarih = pd.to_datetime(birlesik["date"]).max()
+        sinir_tarih = son_tarih - pd.Timedelta(days=TUTULACAK_TAKVIM_GUNU)
+        oncesi_satir = len(birlesik)
+        birlesik = birlesik[pd.to_datetime(birlesik["date"]) >= sinir_tarih].reset_index(drop=True)
+        atilan = oncesi_satir - len(birlesik)
+        if atilan:
+            log.info("%s: %d gunden eski %d satir kayan pencereden cikarildi.",
+                     dosya.name, TUTULACAK_TAKVIM_GUNU, atilan)
+
     birlesik.to_parquet(dosya, index=False)
     log.info("%s guncellendi -> toplam %d satir", dosya.name, len(birlesik))
 
