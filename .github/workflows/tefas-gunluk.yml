@@ -28,6 +28,10 @@ on:
     - cron: '33 8 * * 1-5'
   workflow_dispatch:  # "Run workflow" butonuyla elle de tetiklenebilir
 
+concurrency:
+  group: tefas-repo-yazma
+  cancel-in-progress: false
+  
 jobs:
   veri-cek:
     runs-on: ubuntu-latest
