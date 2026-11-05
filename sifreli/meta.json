@@ -1,9 +1,9 @@
 {
-  "son_guncelleme": "2026-11-05 15:22:57",
+  "son_guncelleme": "2026-11-05 16:56:26",
   "sifrelenen_dosyalar": {
-    "fonlar": true,
+    "fonlar": false,
     "portfoy": true,
-    "kategori": true,
+    "kategori": false,
     "islemler": true,
     "aktiflik": true
   }
